@@ -1,0 +1,37 @@
+{
+  "team_id": "1067588-stacksng",
+  "domain": "coding_assistants",
+  "language_scope": ["en"],
+  "african_alpha_claim": true,
+  "budget_laptop_claim": true,
+  "submitter": {
+    "name": "Daniel Nwaneri",
+    "email": "danielnwaneri41@gmail.com",
+    "github_handle": "dannwaneri"
+  },
+  "cross_disciplinary_pairing": {
+    "discipline": "fintech",
+    "load_bearing": true,
+    "description": "Offline coding assistant with 780-chunk RAG corpus covering Paystack, Flutterwave, Monnify, and Termii — the core African fintech developer stack."
+  },
+  "test_prompts": [
+    {
+      "prompt_id": "tp_001",
+      "prompt": "How do I verify a Paystack webhook signature in Node.js?"
+    },
+    {
+      "prompt_id": "tp_002",
+      "prompt": "How do I initialize a Flutterwave payment and handle the redirect callback in Python?"
+    }
+  ],
+  "model": {
+    "name": "qwen2.5-coder-7b-Q4_K_M",
+    "runtime": "llama.cpp",
+    "quantization": "GGUF Q4_K_M",
+    "parameters_estimate": "7B",
+    "packaging": "binary_bundle"
+  },
+  "_runtime": {
+    "model_path": "model/qwen2.5-coder-7b-Q4_K_M.gguf"
+  }
+}
