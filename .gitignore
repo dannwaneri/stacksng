@@ -8,3 +8,5 @@ venv/
 *.tmp
 .DS_Store
 Thumbs.db
+scripts/_demo_run.ps1
+demo.mp4
