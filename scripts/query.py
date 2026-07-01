@@ -1,4 +1,4 @@
-"""Query the NaijaCode corpus end-to-end.
+"""Query the StacksNG corpus end-to-end.
 
 Pipeline:
   1. Embed the user's question via Ollama (nomic-embed-text).
@@ -27,6 +27,7 @@ EMBED_MODEL = "nomic-embed-text"
 DEFAULT_CHAT_MODEL = "qwen2.5-coder:7b"
 DEFAULT_TOP_K = 5
 DEFAULT_CONTEXT_CHAR_BUDGET = 8000
+DEFAULT_MAX_TOKENS = 512
 
 
 SYSTEM_PROMPT = """You are NaijaCode, an offline coding assistant specialised in the African developer stack: Paystack, Flutterwave, Moniepoint/Monnify, Termii, NGN/kobo currency handling, BVN/NIN verification, USSD, and Nigerian banking integrations.
@@ -124,7 +125,7 @@ def build_prompt(question: str, hits: list[tuple[float, int, str, str, str]], ch
     )
 
 
-def stream_chat(model: str, system: str, user: str) -> str:
+def stream_chat(model: str, system: str, user: str, max_tokens: int) -> str:
     payload = json.dumps(
         {
             "model": model,
@@ -133,7 +134,7 @@ def stream_chat(model: str, system: str, user: str) -> str:
                 {"role": "user", "content": user},
             ],
             "stream": True,
-            "options": {"temperature": 0.2},
+            "options": {"temperature": 0.2, "num_predict": max_tokens},
         }
     ).encode("utf-8")
     req = urllib.request.Request(
@@ -164,7 +165,7 @@ def stream_chat(model: str, system: str, user: str) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Query the NaijaCode corpus with RAG")
+    parser = argparse.ArgumentParser(description="Query the StacksNG corpus with RAG")
     parser.add_argument("question", nargs="*", help="The question to ask (or use --question)")
     parser.add_argument("--question", "-q", dest="question_opt", help="Alternative way to pass the question")
     parser.add_argument("--db", type=Path, default=DEFAULT_DB)
@@ -172,6 +173,8 @@ def main() -> int:
     parser.add_argument("--budget", type=int, default=DEFAULT_CONTEXT_CHAR_BUDGET)
     parser.add_argument("--source", help="Restrict retrieval to a single source (paystack, flutterwave, monnify, termii)")
     parser.add_argument("--model", default=DEFAULT_CHAT_MODEL)
+    parser.add_argument("--max-tokens", type=int, default=DEFAULT_MAX_TOKENS,
+                        help="Cap generated tokens per answer (Ollama num_predict)")
     parser.add_argument("--retrieval-only", action="store_true", help="Skip the LLM call; just print the top hits")
     args = parser.parse_args()
 
@@ -201,8 +204,8 @@ def main() -> int:
         return 0
 
     prompt = build_prompt(question, hits, args.budget)
-    print(f"=== Answer ({args.model}) ===")
-    stream_chat(args.model, SYSTEM_PROMPT, prompt)
+    print(f"=== Answer ({args.model}, max {args.max_tokens} tokens) ===")
+    stream_chat(args.model, SYSTEM_PROMPT, prompt, args.max_tokens)
 
     print("\n=== Sources ===")
     seen: set[str] = set()

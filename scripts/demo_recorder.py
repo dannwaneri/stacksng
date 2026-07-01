@@ -41,12 +41,11 @@ PS_SCRIPT_PATH = PROJECT_ROOT / "scripts" / "_demo_run.ps1"
 
 FPS = 10
 PAUSE_BETWEEN_S = 5
+MAX_TOKENS_PER_ANSWER = 150  # keep each query under ~30s at ~4.8 t/s
 
 QUERIES = [
     "How do I verify a Paystack webhook signature in Node.js?",
     "How do I initialize a Flutterwave payment in Python?",
-    "What is the difference between NGN and kobo in Paystack?",
-    "How do I send an OTP with Termii?",
 ]
 
 # subprocess.CREATE_NEW_CONSOLE — spawn the PS window as its own OS console
@@ -69,9 +68,9 @@ def write_ps_script() -> Path:
         lines += [
             "Write-Host ''",
             f"Write-Host '=== Query {i}/{len(QUERIES)} ===' -ForegroundColor Yellow",
-            f"Write-Host 'PS> python scripts/query.py \"{q}\"' -ForegroundColor Gray",
+            f"Write-Host 'PS> python scripts/query.py --max-tokens {MAX_TOKENS_PER_ANSWER} \"{q}\"' -ForegroundColor Gray",
             "Start-Sleep -Seconds 1",
-            f"python scripts/query.py '{safe_q}'",
+            f"python scripts/query.py --max-tokens {MAX_TOKENS_PER_ANSWER} '{safe_q}'",
             f"Start-Sleep -Seconds {PAUSE_BETWEEN_S}",
         ]
     lines += [
