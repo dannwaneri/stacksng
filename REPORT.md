@@ -4,47 +4,150 @@
 **Domain:** coding_assistants
 **Model:** qwen2.5-coder-7b-Q4_K_M
 
+StacksNG is an offline coding assistant for the African fintech stack: a
+780-chunk RAG corpus built from Paystack, Flutterwave, Monnify (Moniepoint),
+and Termii documentation, retrieved by local embeddings and answered by
+qwen2.5-coder:7b — no internet, no API keys, every answer cited back to the
+official docs.
+
 ---
 
 ## Problem
 
-Nigerian and African developers build on a different stack than the rest of the world.
-Paystack, Flutterwave, Moniepoint, USSD flows, NGN/kobo currency handling, and BVN
-verification are the primitives of African fintech development. No existing AI coding
-tool knows this stack deeply — and all of them require stable internet and API fees
-that are blockers for developers across the continent.
+Nigerian and African developers build on a different stack than the rest of
+the world. Paystack, Flutterwave, Moniepoint, USSD flows, NGN/kobo currency
+handling, and BVN verification are the primitives of African fintech
+development — and they are precisely the topics where general-purpose coding
+assistants are weakest, because these APIs are thinly represented in training
+data and change faster than model retraining cycles.
 
-StacksNG is an offline AI coding assistant that answers questions about the African
-developer stack correctly, with citations, entirely on-device.
+The failure mode is not "no answer" — it is a confidently wrong answer: a
+hallucinated endpoint, an amount passed in naira when the API expects kobo, a
+webhook accepted without signature verification. In payments code, each of
+those is a production incident or a security hole.
 
-Target user: Nigerian and African software developers building fintech integrations.
+StacksNG's answer is grounding: every response is generated from retrieved
+passages of the official documentation and cites the exact source URL, so the
+developer can verify the claim in one click — or trust it offline when there
+is no connectivity to verify with.
+
+Target user: African software developers building fintech integrations on
+laptops they already own, under data and power constraints they don't control.
+
+---
+
+## What the test prompts will exercise
+
+Judges' accuracy runs hit the full pipeline: query embedding → cosine
+retrieval over 780 chunks → cited generation. Retrieval for both registered
+test prompts lands on the correct documentation section (measured on this
+machine, `--retrieval-only`):
+
+| Test prompt | Top-1 retrieved chunk | Cosine sim |
+|---|---|---|
+| tp_001 — Paystack webhook signature in Node.js | `paystack.com/docs/payments/webhooks/#verify-event-origin` | 0.743 |
+| tp_002 — Flutterwave payment init in Python | `developer.flutterwave.com` collections-inflow guide | 0.713 |
+
+For tp_001 the grounded answer contains the three facts that matter — HMAC
+**SHA-512** over the raw request body, keyed with the **secret key**, compared
+against the **`x-paystack-signature`** header — with the source URL appended.
+An ungrounded model frequently gets the hash algorithm or header name wrong;
+this is exactly the class of error the corpus eliminates.
+
+---
+
+## Architecture
+
+```
+question ──► nomic-embed-text (Ollama, local)
+                 │ 768-d query vector
+                 ▼
+         cosine top-K over 780 embedded chunks (SQLite + numpy)
+                 │ top-5 chunks, each carrying "Source: <url>" header
+                 ▼
+         prompt assembly (context + citation instructions)
+                 │
+                 ▼
+         qwen2.5-coder:7b Q4_K_M (llama.cpp, CPU) ──► streamed answer + source URLs
+```
+
+Corpus composition:
+
+| Source | Chunks | Acquisition |
+|---|---|---|
+| Paystack | 340 | HTML scrape of `/docs/api/` + `/docs/payments/` guides |
+| Monnify (Moniepoint) | 290 | HTML scrape of custom Next.js docs portal |
+| Flutterwave | 114 | Embedded OpenAPI spec + guide markdown (ReadMe `#ssr-props`) |
+| Termii | 36 | HTML + published Postman collection |
+| **Total** | **780** | 100 % embedded, one source URL per chunk |
+
+---
+
+## The African use case — and why it is load-bearing
+
+The cross-disciplinary pairing (fintech) is not thematic garnish; the corpus
+content is the product. Verifiable against the shipped `corpus.db`:
+
+| Uniquely African content | Chunks |
+|---|---|
+| NGN / kobo / currency-subunit handling | 178 |
+| Bank transfer flows (NUBAN rails) | 34 |
+| Direct debit + mandates (Nigerian DD scheme) | 30 + 35 |
+| USSD payment flows | 26 |
+| BVN / NIN identity verification | 27 + 15 |
+| Mobile money (MTN, Airtel rails) | 25 |
+| Reserved virtual accounts (NUBAN) | 17 |
+| Offline pay-ins via agency banking ("Moniepoint Business Owner" locations) | 7 |
+
+The last row is content that exists in no Western coding assistant's mental
+model: cash collection through Moniepoint's agent network — agents in every
+local government area in Nigeria — surfaced to merchants as an API. A
+developer asking about it gets a grounded answer here and a hallucination
+anywhere else.
+
+Offline-first is equally load-bearing. Cloud assistants assume three things
+an African developer cannot: uncapped data (mobile data is metered and priced
+against far lower median incomes), stable connectivity, and continuous grid
+power. StacksNG runs entirely from local SQLite + a local GGUF; once
+installed it works on generator power in a co-working space in Port Harcourt
+exactly as it does on fibre in London.
+
+Every claim above is checkable by judges: open `corpus.db`, or run
+`python scripts/query.py --retrieval-only "<any question>"` to see retrieval
+without invoking the LLM.
 
 ---
 
 ## Design Decisions
 
-- **Base model:** qwen2.5-coder:7b — purpose-built for code generation, strong
-  multilingual and non-Western context, fits within 8 GB RAM at Q4_K_M quantization.
-- **Quantization:** Q4_K_M — balance of quality and memory footprint. Q8_0 exceeded
-  budget; Q2_K degraded code-generation quality unacceptably.
-- **Runtime:** llama.cpp via Ollama for development; raw GGUF + llama-bench for the
-  profiler submission.
-- **RAG layer:** 780 chunks across Paystack (340), Flutterwave (114), Monnify (290),
-  Termii (36) — embedded with nomic-embed-text, stored in SQLite. Each chunk carries
-  its source URL so every answer can cite the original documentation.
-- **Why RAG over fine-tuning:** the corpus is documentation, not instruction pairs.
-  RAG gives citation traceability — every answer cites the source URL — and the
-  corpus can be refreshed without retraining when an API evolves.
+- **Base model: qwen2.5-coder:7b** — purpose-built for code generation, and
+  the largest coder model that fits the 8 GB envelope at Q4_K_M. Sub-1B
+  models tested during development could not reliably reproduce exact
+  parameter names and endpoint paths even with the context in front of them;
+  in payments code, "close" is a bug.
+- **Quantization: Q4_K_M** — Q8_0 exceeded the memory budget; Q2_K degraded
+  code generation unacceptably (mangled identifiers, broken JSON).
+- **RAG over fine-tuning** — the corpus is documentation, not instruction
+  pairs. RAG gives citation traceability (every answer carries source URLs)
+  and the corpus can be re-scraped in minutes when an API changes, with no
+  retraining. The scrapers ship in `scrapers/`.
+- **SQLite + numpy over a vector DB** — 780 × 768-d float32 vectors is
+  ~2.3 MB; brute-force cosine over it takes milliseconds. A vector database
+  would add an install dependency for zero benefit at this scale, and every
+  dependency matters when the target machine is offline.
+- **Runtime:** llama.cpp via Ollama for development; raw GGUF + llama-bench
+  for the profiler run.
 
 ---
 
 ## Constraints
 
-- Target: 8 GB RAM, Intel Iris Xe integrated graphics, no discrete GPU.
+- Target: 8 GB RAM, integrated graphics, no discrete GPU.
 - Pure CPU inference via llama.cpp.
-- No internet dependency — corpus is local SQLite, model is local GGUF.
-- Power unreliability in Nigeria — fast first-token latency matters more than
-  sustained throughput.
+- No internet dependency at runtime — corpus is local SQLite, model is local GGUF.
+- Power unreliability — the assistant must be useful in short sessions
+  between outages, which favours grounded, concise, correct-first-time answers
+  over long exploratory generations.
 
 ---
 
@@ -60,7 +163,7 @@ development machine. See `submission.json` for the full report.
 | Runtime | llama.cpp (b9847) via `llama-bench`, pure CPU |
 | RAM at peak (RSS) | 7053.67 MB (6.888 GB) |
 | Steady-state RSS | 6505.94 MB |
-| Time to first token | 33,464.86 ms (cold mmap of 4.68 GB model + prompt eval) |
+| Time to first token | 33,464.86 ms (cold mmap of 4.68 GB model + 512-token prompt eval) |
 | Generation speed | 4.82 t/s |
 | Prompt tokens / Generated tokens | 512 / 128 |
 | CPU p99 utilisation | 99.6 % |
@@ -79,15 +182,43 @@ development machine. See `submission.json` for the full report.
 
 ### Why these numbers, and what we trade
 
-A 7B Q4_K_M model is the largest that fits the 8 GB budget. Peak RSS at 6.89 GB
-sits ~110 MB under the 7 GB Seff ceiling, so Seff is structurally near zero by
-design — ADTC rewards small models on Seff, and we have chosen a larger model
-deliberately because the African-fintech domain demands precise code generation
-and citation traceability that sub-1B models do not deliver at acceptable quality.
+A 7B Q4_K_M model is the largest that fits the 8 GB budget. Peak RSS at
+6.89 GB sits ~110 MB under the 7 GB Seff ceiling, so Seff is structurally
+near zero **by choice**: Sacc carries 50 % of the total score and Seff 20 %,
+and in this domain accuracy is the difference between working payments code
+and a security incident. We spend the memory budget where the scoring — and
+the user — put the weight.
 
-Cold first-token latency is 33.5 s because llama-bench measures from a fully
-cold mmap. In the actual product (after a single warmup call) the model stays
-resident and first-token latency drops to the low hundreds of milliseconds.
+The 33.5 s first-token figure is the profiler's fully cold measurement: it
+includes mapping the 4.68 GB model file from disk and evaluating a 512-token
+prompt. In interactive use the model file stays in the OS page cache after
+the first query, which removes the load component; time to first token then
+scales with prompt length. Generation speed is unchanged either way (4.82 t/s).
 
-These are self-reported development benchmarks. Official scores are measured by
-the ADTC profiler on the standard evaluation machine.
+These are self-reported development benchmarks. Official scores are measured
+by the ADTC profiler on the standard evaluation machine.
+
+---
+
+## Reproducibility
+
+```bash
+git clone https://github.com/dannwaneri/stacksng
+cd stacksng
+bash download_model.sh        # fetches qwen2.5-coder-7b-Q4_K_M.gguf (~4.7 GB, public URL)
+pip install -r requirements.txt
+python scripts/query.py --retrieval-only "How do I verify a Paystack webhook signature?"
+```
+
+`download_model.sh` pulls a GGUF that is byte-identical (4,683,074,048 bytes)
+to the weights profiled in `submission.json`. The corpus (`corpus.db`), the
+scrapers that built it (`scrapers/`), and the embedding/query pipeline
+(`scripts/`) all ship in the repo.
+
+---
+
+## Roadmap
+
+Africa's Talking USSD documentation for deeper session-flow coverage; then
+Ghana (MTN MoMo), Kenya (M-Pesa/Daraja), and South Africa (Ozow) corpora —
+the architecture adds a market by adding a scraper.
