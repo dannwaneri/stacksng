@@ -121,10 +121,11 @@ without invoking the LLM.
 ## Design Decisions
 
 - **Base model: qwen2.5-coder:7b** — purpose-built for code generation, and
-  the largest coder model that fits the 8 GB envelope at Q4_K_M. Sub-1B
-  models tested during development could not reliably reproduce exact
-  parameter names and endpoint paths even with the context in front of them;
-  in payments code, "close" is a bug.
+  the largest coder model that fits the 8 GB envelope at Q4_K_M. We measured
+  the smaller alternative rather than assuming: a 1.5B ablation (see
+  Benchmarks) wins the score formula by 35 points but fabricates a
+  nonexistent client library on one of our two registered test prompts. In
+  payments code, "close" is a bug.
 - **Quantization: Q4_K_M** — Q8_0 exceeded the memory budget; Q2_K degraded
   code generation unacceptably (mangled identifiers, broken JSON).
 - **RAG over fine-tuning** — the corpus is documentation, not instruction
@@ -194,6 +195,41 @@ includes mapping the 4.68 GB model file from disk and evaluating a 512-token
 prompt. In interactive use the model file stays in the OS page cache after
 the first query, which removes the load component; time to first token then
 scales with prompt length. Generation speed is unchanged either way (4.82 t/s).
+
+### The 1.5B ablation — measuring the trade instead of asserting it
+
+The strongest formula play in this competition is a small model. We tested
+it: qwen2.5-coder-**1.5b** at the same Q4_K_M quantization, through the
+identical RAG pipeline, profiled by the same `adtc-profiler` on the same
+machine.
+
+| | 7B (submitted) | 1.5B (ablation) |
+|---|---|---|
+| Generation speed | 4.82 t/s | 16.90 t/s |
+| First token (cold) | 33.5 s | 6.6 s |
+| Peak RSS | 6.888 GB | 1.672 GB |
+| Sperf / Seff | 32.13 / 1.60 | 100.00 / 76.11 |
+| Non-accuracy score (`0.3·Sperf + 0.2·Seff`) | **9.96** | **45.22** |
+
+On everything the formula measures, the 1.5B wins by ~35 points. We rejected
+it because of what happened on the registered test prompts:
+
+- **tp_001 (Paystack webhook):** tie. Both models produce the correct
+  HMAC-SHA512 / secret key / `x-paystack-signature` answer, because the
+  retrieved chunk contains Paystack's reference implementation and
+  transcription is sufficient. Retrieval equalizes lookup questions.
+- **tp_002 (Flutterwave payment init):** the 1.5B opened with
+  `import flutterwave` and a `flutterwave.Client(...)` API — **a Python
+  client library that does not exist** — wrapping otherwise
+  correctly-grounded payload fields. The 7B, given identical context, wrote
+  `requests` calls against the real documented endpoints
+  (`/customers`, `/payment-methods`) with the real headers (`X-Trace-Id`,
+  `X-Idempotency-Key`). Model capacity still decides synthesis questions.
+
+A payments assistant that fabricates the client library on half of its
+registered prompts is a fast, memory-efficient way to ship broken code. We
+submit the 7B: the memory budget is spent where both the scoring weights
+(Sacc = 50 %) and the user's safety put it.
 
 These are self-reported development benchmarks. Official scores are measured
 by the ADTC profiler on the standard evaluation machine.
