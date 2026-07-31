@@ -34,6 +34,14 @@ is no connectivity to verify with.
 Target user: African software developers building fintech integrations on
 laptops they already own, under data and power constraints they don't control.
 
+Distribution is not hypothetical. Nigeria and the wider region already have
+active developer communities built around exactly this stack — Data Science
+Nigeria, Zindi, Deep Learning Indaba, and Microsoft's Africa Development
+Centre — where fintech-integration questions come up routinely. StacksNG
+ships as an open-source CLI so it can be picked up there directly, not sold
+into a fintech's compliance department: the customer is the developer
+already building against these APIs, not the bank.
+
 ---
 
 ## What the test prompts will exercise
