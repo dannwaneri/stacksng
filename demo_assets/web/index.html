@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>StacksNG Demo</title>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: #12161f;
+    --border: #232838;
+    --text: #e8ecf4;
+    --dim: #8a91a5;
+    --accent: #22c55e;
+    --accent2: #6366f1;
+    --mono: 'Consolas', 'Cascadia Mono', 'Menlo', monospace;
+    --sans: 'Segoe UI', 'Inter', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; width: 1920px; height: 1080px;
+    background: var(--bg); color: var(--text);
+    font-family: var(--sans);
+    overflow: hidden;
+  }
+  .scene {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.5s ease;
+    padding: 80px;
+    /* Inactive scenes still occupy this same absolute region; without this,
+       an invisible later-DOM scene sits on top in hit-test order and
+       silently swallows clicks/typing meant for the active scene's real
+       <input>/<button> (Playwright's actionability check resolves the
+       element at that point, not just "what's opaque"). */
+    pointer-events: none;
+  }
+  .scene.active { opacity: 1; pointer-events: auto; }
+
+  /* ---------- shared bits ---------- */
+  .wordmark {
+    font-size: 40px; font-weight: 700; letter-spacing: -0.5px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .wordmark .dot { width: 14px; height: 14px; border-radius: 4px; background: var(--accent); }
+  .kicker {
+    font-size: 22px; color: var(--dim); text-transform: uppercase; letter-spacing: 3px; margin-bottom: 28px;
+  }
+  .big {
+    font-size: 56px; font-weight: 700; line-height: 1.3; text-align: center; max-width: 1400px;
+  }
+  .big .hl { color: var(--accent); }
+  .sub {
+    font-size: 30px; color: var(--dim); text-align: center; max-width: 1200px; margin-top: 28px; line-height: 1.5;
+  }
+
+  /* ---------- scene 1: hook ---------- */
+  #scene-hook .big { font-size: 62px; }
+  #scene-hook .strike { color: #ef4444; }
+
+  /* ---------- scene 2: problem ---------- */
+  .pill-row { display: flex; gap: 22px; margin-top: 50px; flex-wrap: wrap; justify-content: center; max-width: 1500px; }
+  .pill {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 999px;
+    padding: 16px 34px; font-size: 26px; color: var(--text); font-family: var(--mono);
+  }
+
+  /* ---------- scene 3: idea ---------- */
+  .feature-row { display: flex; gap: 60px; margin-top: 56px; }
+  .feature { display: flex; flex-direction: column; align-items: center; gap: 14px; width: 300px; }
+  .feature .icon { font-size: 44px; }
+  .feature .label { font-size: 24px; color: var(--dim); text-align: center; }
+
+  /* ---------- scene 4: architecture ---------- */
+  #scene-arch { justify-content: flex-start; padding-top: 100px; }
+  .arch-title { font-size: 30px; color: var(--dim); margin-bottom: 40px; }
+  .arch-flow { display: flex; align-items: center; gap: 20px; }
+  .arch-box {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+    padding: 28px 26px; text-align: center; width: 260px;
+  }
+  .arch-box .t { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+  .arch-box .s { font-size: 17px; color: var(--dim); line-height: 1.4; }
+  .arch-arrow { font-size: 34px; color: var(--dim); }
+  .corpus-table {
+    margin-top: 56px; display: flex; gap: 16px;
+  }
+  .corpus-cell {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 18px 28px; text-align: center; font-family: var(--mono);
+  }
+  .corpus-cell .n { font-size: 30px; font-weight: 700; color: var(--accent); }
+  .corpus-cell .l { font-size: 16px; color: var(--dim); margin-top: 4px; }
+
+  /* ---------- scene 5: live console (real driven interaction) ---------- */
+  #scene-console { align-items: stretch; justify-content: flex-start; padding: 90px 160px; }
+  .console-wrap { width: 100%; max-width: 1600px; margin: 0 auto; }
+  .console-header {
+    font-size: 22px; color: var(--dim); margin-bottom: 26px;
+    display: flex; align-items: center; gap: 10px; font-family: var(--mono);
+  }
+  .console-header .dot-mark { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+  .console-inputrow {
+    display: flex; align-items: center; gap: 18px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+    padding: 22px 28px;
+  }
+  .console-inputrow .prompt { color: var(--accent); font-family: var(--mono); font-size: 28px; }
+  .console-input {
+    flex: 1; background: transparent; border: none; outline: none;
+    color: var(--text); font-family: var(--mono); font-size: 25px;
+  }
+  .console-input::placeholder { color: var(--dim); }
+  .ask-btn {
+    background: var(--accent); color: #06170d; border: none; border-radius: 10px;
+    padding: 14px 32px; font-size: 21px; font-weight: 700; cursor: pointer; font-family: var(--sans);
+  }
+  .ask-btn:active { transform: scale(0.96); }
+  .answer-area {
+    margin-top: 30px; background: #0d1117; border: 1px solid var(--border); border-radius: 14px;
+    padding: 34px 40px; font-family: var(--mono); font-size: 18px; line-height: 1.55;
+    color: #c9d1d9; white-space: pre-wrap; min-height: 200px;
+  }
+  .answer-area .q { color: #79c0ff; }
+  .answer-area .code { color: #a5d6ff; }
+  .answer-area .src { color: #7ee787; }
+  .answer-area .kw { color: #ff7b72; }
+  .answer-area .proof { background: rgba(34,197,94,0.12); border-radius: 4px; }
+
+  /* ---------- scene 8: close ---------- */
+  #scene-close .wordmark { font-size: 64px; margin-bottom: 22px; }
+  #scene-close .tagline { font-size: 28px; color: var(--dim); margin-bottom: 60px; }
+  #scene-close .meta { font-size: 24px; color: var(--dim); font-family: var(--mono); }
+  #scene-close .meta b { color: var(--text); }
+</style>
+</head>
+<body>
+
+  <!-- 1. HOOK -->
+  <section class="scene" id="scene-hook">
+    <div class="big">Every AI coding assistant<br/>defaults to <span class="strike">Stripe</span>.</div>
+    <div class="sub">None of them know Paystack, Flutterwave, or Moniepoint.</div>
+  </section>
+
+  <!-- 2. PROBLEM -->
+  <section class="scene" id="scene-problem">
+    <div class="kicker">The Problem</div>
+    <div class="big">For African developers,<br/>that's not a gap — it's a <span class="hl">blocker</span>.</div>
+    <div class="pill-row">
+      <div class="pill">USSD flows</div>
+      <div class="pill">NGN &amp; kobo</div>
+      <div class="pill">BVN verification</div>
+      <div class="pill">Offline-first</div>
+    </div>
+  </section>
+
+  <!-- 3. IDEA -->
+  <section class="scene" id="scene-idea">
+    <div class="wordmark"><span class="dot"></span>StacksNG</div>
+    <div class="sub" style="margin-top:22px; font-size:32px; color:var(--text);">
+      An offline AI coding assistant<br/>built for the African developer stack.
+    </div>
+    <div class="feature-row">
+      <div class="feature"><div class="icon">📡</div><div class="label">No internet<br/>connection</div></div>
+      <div class="feature"><div class="icon">🔑</div><div class="label">No API<br/>keys</div></div>
+      <div class="feature"><div class="icon">💻</div><div class="label">Runs on a<br/>laptop</div></div>
+      <div class="feature"><div class="icon">🔗</div><div class="label">Every answer<br/>cited</div></div>
+    </div>
+  </section>
+
+  <!-- 4. ARCHITECTURE -->
+  <section class="scene" id="scene-arch">
+    <div class="arch-title">Retrieval-augmented generation, entirely local</div>
+    <div class="arch-flow">
+      <div class="arch-box"><div class="t">780 chunks</div><div class="s">Paystack, Flutterwave,<br/>Monnify, Termii docs</div></div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-box"><div class="t">Embeddings</div><div class="s">nomic-embed-text<br/>via Ollama</div></div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-box"><div class="t">Similarity search</div><div class="s">Cosine top-K<br/>SQLite + numpy</div></div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-box"><div class="t">qwen2.5-coder:7b</div><div class="s">llama.cpp<br/>CPU only</div></div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-box"><div class="t">Cited answer</div><div class="s">Source URL on<br/>every claim</div></div>
+    </div>
+    <div class="corpus-table">
+      <div class="corpus-cell"><div class="n">340</div><div class="l">Paystack</div></div>
+      <div class="corpus-cell"><div class="n">114</div><div class="l">Flutterwave</div></div>
+      <div class="corpus-cell"><div class="n">290</div><div class="l">Monnify</div></div>
+      <div class="corpus-cell"><div class="n">36</div><div class="l">Termii</div></div>
+    </div>
+  </section>
+
+  <!-- 5. LIVE CONSOLE — real input/button driven by testreel type/click steps -->
+  <section class="scene" id="scene-console">
+    <div class="console-wrap">
+      <div class="console-header"><span class="dot-mark"></span>StacksNG — query console (localhost, offline)</div>
+      <div class="console-inputrow">
+        <span class="prompt">&gt;</span>
+        <input id="qinput" class="console-input" type="text" placeholder="Ask about Paystack, Flutterwave, Monnify, Termii&hellip;" autocomplete="off" />
+        <button id="ask-btn" type="button" class="ask-btn">Ask</button>
+      </div>
+      <div id="answer-area" class="answer-area"></div>
+    </div>
+  </section>
+
+  <!-- 8. CLOSE -->
+  <section class="scene" id="scene-close">
+    <div class="wordmark"><span class="dot"></span>StacksNG</div>
+    <div class="tagline">Offline. On-device. Cited.</div>
+    <div class="meta">Africa Deep Tech Challenge &middot; 2026<br/><b>github.com/dannwaneri/stacksng</b></div>
+  </section>
+
+<script>
+  // Exact scene timings computed from the final narration audio (ms).
+  // scene-console spans what used to be transition+result1+result2 (64360-105420ms);
+  // real interaction inside it is now driven by testreel's type/click steps,
+  // not a JS timer — only the scene *swap itself* is timer-driven.
+  const SCENES = [
+    { id: 'scene-hook',     start: 0,      dur: 7440  },
+    { id: 'scene-problem',  start: 7690,   dur: 16480 },
+    { id: 'scene-idea',     start: 24420,  dur: 17600 },
+    { id: 'scene-arch',     start: 42270,  dur: 21840 },
+    { id: 'scene-console',  start: 64360,  dur: 41060 },
+    { id: 'scene-close',    start: 105670, dur: 9760  },
+  ];
+
+  function showScene(id) {
+    document.querySelectorAll('.scene').forEach(el => {
+      el.classList.toggle('active', el.id === id);
+    });
+  }
+
+  function schedule() {
+    SCENES.forEach(s => {
+      setTimeout(() => showScene(s.id), s.start);
+    });
+  }
+
+  // Real, unedited query.py output for the two ADTC test prompts — revealed
+  // on an actual click, not a blind timer. See demo_assets/text/ for the
+  // raw captures this was built from.
+  const ANSWERS = [
+    `<span class="q">$ python scripts/query.py "How do I verify a Paystack webhook signature in Node.js?"</span>
+
+<span class="kw">const</span> crypto = require(<span class="code">'crypto'</span>);
+<span class="kw">const</span> secret = process.env.SECRET_KEY;
+
+app.post(<span class="code">'/my/webhook/url'</span>, <span class="kw">function</span>(req, res) {
+  <span class="kw">const</span> hash = crypto.createHmac(<span class="code">'sha512'</span>, secret)
+    .update(JSON.stringify(req.body))
+    .digest(<span class="code">'hex'</span>);
+
+  <span id="sig-line" class="proof"><span class="kw">if</span> (hash === req.headers[<span class="code">'x-paystack-signature'</span>]) {</span>
+    <span class="kw">// verified — process event</span>
+  }
+});
+
+<span class="src">Source: paystack.com/docs/payments/webhooks/#verify-event-origin</span>`,
+    `<span class="q">$ python scripts/query.py "How do I initialize a Flutterwave payment and handle the redirect callback in Python?"</span>
+
+<span class="kw">import</span> requests
+
+<span class="kw">def</span> create_customer(api_key, customer_data):
+    url = <span class="code">"https://developersandbox-api.flutterwave.com/customers"</span>
+    headers = {
+        <span class="code">"Authorization"</span>: f<span class="code">"Bearer {api_key}"</span>,
+        <span class="code">"X-Trace-Id"</span>: <span class="code">"unique_trace_id"</span>
+    }
+    <span class="kw">return</span> requests.post(url, headers=headers, json=customer_data).json()
+
+<span class="kw">def</span> initiate_charge(api_key, charge_data):
+    url = <span id="endpoint-line" class="proof code">"https://developersandbox-api.flutterwave.com/charges"</span>
+    headers = {
+        <span class="code">"Authorization"</span>: f<span class="code">"Bearer {api_key}"</span>,
+        <span class="code">"X-Idempotency-Key"</span>: <span class="code">"unique_idempotency_key"</span>
+    }
+    <span class="kw">return</span> requests.post(url, headers=headers, json=charge_data).json()
+
+<span class="kw">if</span> charge_response["data"]["next_action"]["type"] == <span class="code">"redirect_url"</span>:
+    redirect_url = charge_response["data"]["next_action"]["redirect_url"]["url"]
+    <span class="kw"># redirect the user, then verify via GET /charges/{reference}</span>
+
+<span class="src">Source: developer.flutterwave.com/docs/main-payment-flow</span>`,
+  ];
+
+  let askCount = 0;
+  document.getElementById('ask-btn').addEventListener('click', () => {
+    const area = document.getElementById('answer-area');
+    area.innerHTML = ANSWERS[Math.min(askCount, ANSWERS.length - 1)];
+    askCount += 1;
+    document.getElementById('qinput').value = '';
+  });
+
+  // Expose a flag the recorder can poll / a hook for testreel's `wait` step.
+  window.__demoDone = false;
+  const last = SCENES[SCENES.length - 1];
+  setTimeout(() => { window.__demoDone = true; }, last.start + last.dur);
+
+  schedule();
+</script>
+</body>
+</html>

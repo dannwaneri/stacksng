@@ -10,3 +10,8 @@ venv/
 Thumbs.db
 scripts/_demo_run.ps1
 demo.mp4
+demo_assets/audio/
+demo_assets/frames/
+demo_assets/testreel-output*/
+demo_assets/text/
+demo_assets/*.log

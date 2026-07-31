@@ -1,0 +1,32 @@
+{
+  "url": "http://localhost:8420/index.html",
+  "viewport": { "width": 1920, "height": 1080 },
+  "outputSize": { "width": 1920, "height": 1080 },
+  "cursor": true,
+  "chrome": { "enabled": true, "url": true },
+  "background": {
+    "enabled": true,
+    "gradient": { "from": "#05070a", "to": "#0d1524" },
+    "padding": 56,
+    "borderRadius": 16
+  },
+  "outputFormat": "mp4",
+  "steps": [
+    { "action": "wait", "ms": 64500, "pauseAfter": 0 },
+
+    { "action": "type", "selector": "#qinput", "text": "How do I verify a Paystack webhook signature in Node.js?", "delay": 35, "pauseAfter": 300 },
+    { "action": "click", "selector": "#ask-btn", "zoom": 1.15, "pauseAfter": 1200 },
+    { "action": "zoom", "selector": "#sig-line", "scale": 1.25, "duration": 600, "pauseAfter": 1800 },
+    { "action": "zoom", "selector": "#sig-line", "scale": 1, "duration": 600, "pauseAfter": 200 },
+
+    { "action": "wait", "ms": 16700, "pauseAfter": 0 },
+
+    { "action": "clear", "selector": "#qinput", "pauseAfter": 100 },
+    { "action": "type", "selector": "#qinput", "text": "How do I initialize a Flutterwave payment and handle the redirect callback in Python?", "delay": 30, "pauseAfter": 300 },
+    { "action": "click", "selector": "#ask-btn", "zoom": 1.15, "pauseAfter": 1000 },
+    { "action": "zoom", "selector": "#endpoint-line", "scale": 1.25, "duration": 600, "pauseAfter": 2000 },
+    { "action": "zoom", "selector": "#endpoint-line", "scale": 1, "duration": 600, "pauseAfter": 200 },
+
+    { "action": "wait", "ms": 13800, "pauseAfter": 0 }
+  ]
+}
