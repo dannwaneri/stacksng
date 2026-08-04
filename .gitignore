@@ -5,11 +5,13 @@ __pycache__/
 .venv/
 venv/
 *.gguf
+model/
+artifacts/
 *.tmp
 .DS_Store
 Thumbs.db
 scripts/_demo_run.ps1
-demo.mp4
+demo*.mp4
 demo_assets/audio/
 demo_assets/frames/
 demo_assets/testreel-output*/

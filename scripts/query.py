@@ -35,9 +35,11 @@ SYSTEM_PROMPT = """You are NaijaCode, an offline coding assistant specialised in
 You will be given relevant documentation excerpts as context. Use them — and only them — to answer the user's question. Each excerpt is preceded by a Source: line.
 
 Rules:
+- Before answering, check whether the specific company/product/provider named in the question (e.g. a payment provider's brand name) is actually named in the context excerpts below. Retrieval is similarity-based and will sometimes hand you excerpts from a DIFFERENT provider just because the topic (webhooks, checkout, transfers) is similar — that is not the same as the named provider being covered.
+- If the named provider in the question does not appear in the context excerpts, say plainly that this provider is not in your knowledge base. Do NOT substitute another provider's instructions, endpoints, or headers under the asked-about provider's name, and do NOT invent a plausible-looking source URL. Only mention the other provider's actual documented flow if you clearly label it as being for that other provider, not the one asked about.
 - If the context does not contain enough information to answer confidently, say so plainly.
 - Quote endpoint paths, parameter names, and code from the context verbatim.
-- When you cite a specific fact, append the source URL in parentheses, e.g. (source: https://paystack.com/docs/api/transaction/#verify).
+- When you cite a specific fact, append the source URL in parentheses, e.g. (source: https://paystack.com/docs/api/transaction/#verify). Never cite a URL that does not appear in the context excerpts.
 - Prefer short, working code over prose. Use the language the user asks for, or fall back to the language already used in the context excerpt.
 """
 
@@ -165,6 +167,11 @@ def stream_chat(model: str, system: str, user: str, max_tokens: int) -> str:
 
 
 def main() -> int:
+    # Windows consoles default to a legacy code page (e.g. cp1252) that can't
+    # encode characters like em-dashes the model generates — crashed mid-answer
+    # on C13 of the corpus stress test (2026-08-03) with UnicodeEncodeError.
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
     parser = argparse.ArgumentParser(description="Query the StacksNG corpus with RAG")
     parser.add_argument("question", nargs="*", help="The question to ask (or use --question)")
     parser.add_argument("--question", "-q", dest="question_opt", help="Alternative way to pass the question")

@@ -154,6 +154,10 @@ without invoking the LLM.
 - Target: 8 GB RAM, integrated graphics, no discrete GPU.
 - Pure CPU inference via llama.cpp.
 - No internet dependency at runtime — corpus is local SQLite, model is local GGUF.
+  Verified, not assumed: ran `scripts/query.py` end-to-end with a Windows Firewall
+  outbound-block rule on `python.exe` (loopback exempted, so the process could
+  still reach the local Ollama daemon but nothing else) — retrieval, generation,
+  and citations all completed successfully with zero internet access available.
 - Power unreliability — the assistant must be useful in short sessions
   between outages, which favours grounded, concise, correct-first-time answers
   over long exploratory generations.
@@ -181,22 +185,37 @@ development machine. See `submission.json` for the full report.
 
 ### Self-reported scores (Sacc placeholder = 0)
 
+The table above is the original dev-box measurement (16GB Windows box, no
+enforced ceiling) — kept for context. It was superseded on Aug 3-4 2026 by
+runs inside a Docker container matching the actual reference profile exactly
+(`--memory=7.5g --cpus=4`, `Dockerfile.profiler`, pinned `llama.cpp` b10240,
+CPU-only, Ubuntu 22.04), verified with `adtc-profiler compare` (`verdict: PASS`,
+all checks within official tolerance — see `artifacts/verdict.json`). These
+are the figures actually entered on Devpost:
+
 | Component | Formula | Value |
 |---|---|---|
-| Sperf | `min(TPS / 15.0, 1.0) * 100` | **32.13** |
-| Seff | `max(0, (7.0 - peak_rss_gb) / 7.0) * 100` | **1.60** |
+| Sperf | `min(TPS / 15.0, 1.0) * 100` | **30.40** (4.56 t/s) |
+| Seff | `max(0, (7.0 - peak_rss_gb) / 7.0) * 100` | **5.57** (6.61 GB peak RSS) |
 | Pthermal | `10 if throttled else 0` | **0** |
 | Sacc | judged on validation set | 0 (placeholder) |
-| **Stotal** | `0.50*Sacc + 0.30*Sperf + 0.20*Seff − Pthermal` | **9.96** |
+| **Stotal** | `0.50*Sacc + 0.30*Sperf + 0.20*Seff − Pthermal` | **10.23** |
+
+Peak RSS across three separate container-constrained runs ranged 6678.78–
+6903.46 MB (3.7%–6.8% margin against the 7GB ceiling); the CPU-pinned run
+above (6768.85 MB, 5.57%) sits in the middle of that range and is the most
+reference-faithful single measurement.
 
 ### Why these numbers, and what we trade
 
-A 7B Q4_K_M model is the largest that fits the 8 GB budget. Peak RSS at
-6.89 GB sits ~110 MB under the 7 GB Seff ceiling, so Seff is structurally
-near zero **by choice**: Sacc carries 50 % of the total score and Seff 20 %,
-and in this domain accuracy is the difference between working payments code
-and a security incident. We spend the memory budget where the scoring — and
-the user — put the weight.
+A 7B Q4_K_M model is the largest that fits the 8 GB budget. Measured under a
+real enforced 7GB-class container ceiling, peak RSS sits around 6.6-6.9 GB
+depending on the run — comfortable, but Seff (5.57) still stays modest
+relative to what a much smaller model could claim. That's a deliberate trade,
+not an oversight: Sacc carries 50% of the total score and Seff only 20%, and
+in this domain accuracy is the difference between working payments code and
+a security incident (see the 1.5B ablation below). We spend the memory
+budget where the scoring — and the user — put the weight.
 
 The 33.5 s first-token figure is the profiler's fully cold measurement: it
 includes mapping the 4.68 GB model file from disk and evaluating a 512-token
@@ -241,6 +260,30 @@ submit the 7B: the memory budget is spent where both the scoring weights
 
 These are self-reported development benchmarks. Official scores are measured
 by the ADTC profiler on the standard evaluation machine.
+
+### Sustained-load thermal test (native hardware, Aug 4 2026)
+
+The profiler's own `cpu_thermal.core_temp_c_peak` reads `null` in every run
+we produced (participant, audit, container, CPU-pinned) — expected, per the
+tool's own source: cloud VMs don't expose host thermal sensors, so the
+official audit environment can't observe temperature either. To get a real
+answer anyway, we ran a ~9-minute sustained load (`llama-bench`, 6 reps ×
+300 generated tokens) directly on the native dev laptop with
+[LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor)
+polling CPU package temperature every 3 seconds.
+
+- **Peak: 91°C**, a brief spike in the first ~10 seconds (likely the initial
+  512-token prompt-processing burst). It then settled and held stable at
+  **70-76°C** for the remaining ~9 minutes under continuous load.
+- Peak CPU load: 93.5%.
+- This sits below the profiler's own throttle-detection threshold (95°C,
+  see `thermal.py`), so `throttled` would report `false` even if this
+  environment could observe it.
+- Full log: `artifacts/thermal_log.csv`.
+
+Included as supplementary evidence the machine doesn't overheat under real
+sustained use, separate from the schema's `cpu_thermal` block (which reports
+`null`/`false` structurally, not because nothing was tested).
 
 ---
 

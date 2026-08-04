@@ -1,0 +1,51 @@
+# Local reproduction of the ADTC 2026 audit environment for memory-ceiling
+# testing. Not part of the submission itself (not required by the repo
+# structure checklist) — used only to validate RAM margin under a real
+# cgroup-enforced limit before submitting.
+FROM ubuntu:22.04
+
+ARG LLAMA_CPP_TAG=b10240
+ARG LLAMA_CPP_COMMIT=0b14b87d7c20cb753b94b96854dd7b45306fc696
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential cmake git software-properties-common \
+    ca-certificates curl gnupg dirmngr \
+    && add-apt-repository -y ppa:deadsnakes/ppa \
+    && apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 python3.11-venv python3.11-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python3.11 -m ensurepip --upgrade \
+    && python3.11 -m pip install --upgrade pip
+
+# Pin to a specific tagged commit, not a floating branch/HEAD, so this build
+# is reproducible days/weeks later.
+RUN git clone --depth 1 --branch ${LLAMA_CPP_TAG} https://github.com/ggml-org/llama.cpp.git /opt/llama.cpp \
+    && cd /opt/llama.cpp \
+    && test "$(git rev-parse HEAD)" = "${LLAMA_CPP_COMMIT}"
+
+# CPU-only build: reference hardware is integrated-graphics-only, no CUDA/Metal.
+RUN cmake -S /opt/llama.cpp -B /opt/llama.cpp/build \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DGGML_CUDA=OFF \
+    -DGGML_METAL=OFF \
+    -DGGML_VULKAN=OFF \
+    -DLLAMA_CURL=OFF \
+    -DLLAMA_BUILD_TESTS=OFF \
+    -DLLAMA_BUILD_EXAMPLES=ON \
+    -DLLAMA_BUILD_SERVER=OFF \
+    && cmake --build /opt/llama.cpp/build --config Release --target llama-bench -j"$(nproc)"
+
+# adtc-profiler's own docs say it expects `llama-bench` specifically on PATH.
+RUN install -m 0755 /opt/llama.cpp/build/bin/llama-bench /usr/local/bin/llama-bench \
+    && llama-bench --help > /dev/null
+
+RUN python3.11 -m pip install "adtc-profiler[accuracy] @ git+https://github.com/Africa-Deep-Tech-Foundation/adtc-profiler.git"
+
+RUN ln -sf /usr/local/bin/python3.11 /usr/local/bin/python3 \
+    && ln -sf /usr/local/bin/python3.11 /usr/local/bin/python
+
+WORKDIR /work
+ENTRYPOINT ["adtc-profiler"]

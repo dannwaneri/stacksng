@@ -211,16 +211,23 @@
 
 <script>
   // Exact scene timings computed from the final narration audio (ms).
-  // scene-console spans what used to be transition+result1+result2 (64360-105420ms);
-  // real interaction inside it is now driven by testreel's type/click steps,
-  // not a JS timer — only the scene *swap itself* is timer-driven.
+  // v2 re-cut (Aug 3, 2026): hook+problem+idea narration merged into one
+  // clip (01_intro_v2.wav, 14560ms) split proportionally to the original
+  // three clips' relative lengths (7440:16480:17600); architecture merged
+  // to a single shorter clip (02_architecture_v2.wav, 14720ms). Cuts total
+  // pre-demo time from 63360ms to 29780ms so the live console demo starts
+  // at ~30% of the video instead of ~56%, per Devpost's own video guidance
+  // (explain the app in the first few seconds, screencast over marketing).
+  // scene-console spans what used to be transition+result1+result2 (unchanged,
+  // 41060ms); real interaction inside it is driven by testreel's type/click
+  // steps, not a JS timer — only the scene *swap itself* is timer-driven.
   const SCENES = [
-    { id: 'scene-hook',     start: 0,      dur: 7440  },
-    { id: 'scene-problem',  start: 7690,   dur: 16480 },
-    { id: 'scene-idea',     start: 24420,  dur: 17600 },
-    { id: 'scene-arch',     start: 42270,  dur: 21840 },
-    { id: 'scene-console',  start: 64360,  dur: 41060 },
-    { id: 'scene-close',    start: 105670, dur: 9760  },
+    { id: 'scene-hook',     start: 0,      dur: 2609  },
+    { id: 'scene-problem',  start: 2609,   dur: 5780  },
+    { id: 'scene-idea',     start: 8389,   dur: 6171  },
+    { id: 'scene-arch',     start: 14810,  dur: 14720 },
+    { id: 'scene-console',  start: 29780,  dur: 41060 },
+    { id: 'scene-close',    start: 71090,  dur: 9760  },
   ];
 
   function showScene(id) {

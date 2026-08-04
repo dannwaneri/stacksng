@@ -6,13 +6,13 @@
   "chrome": { "enabled": true, "url": true },
   "background": {
     "enabled": true,
-    "gradient": { "from": "#05070a", "to": "#0d1524" },
-    "padding": 56,
-    "borderRadius": 16
+    "gradient": { "from": "#0f172a", "to": "#1e293b" },
+    "padding": 64,
+    "borderRadius": 14
   },
   "outputFormat": "mp4",
   "steps": [
-    { "action": "wait", "ms": 64500, "pauseAfter": 0 },
+    { "action": "wait", "ms": 29920, "pauseAfter": 0 },
 
     { "action": "type", "selector": "#qinput", "text": "How do I verify a Paystack webhook signature in Node.js?", "delay": 35, "pauseAfter": 300 },
     { "action": "click", "selector": "#ask-btn", "zoom": 1.15, "pauseAfter": 1200 },
