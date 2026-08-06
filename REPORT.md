@@ -79,6 +79,13 @@ question ──► nomic-embed-text (Ollama, local)
          qwen2.5-coder:7b Q4_K_M (llama.cpp, CPU) ──► streamed answer + source URLs
 ```
 
+Only two boxes in that diagram touch a model — the embedding call and the final
+generation call. Everything else (scraping, chunking, cosine ranking, prompt
+assembly, citation extraction) is deterministic Python: same query, same corpus,
+same retrieved chunks and prompt, every time. What the model sees is fully
+reasoned-about code; only the final answer generation is genuinely
+non-deterministic.
+
 Corpus composition:
 
 | Source | Chunks | Acquisition |
@@ -309,3 +316,21 @@ scrapers that built it (`scrapers/`), and the embedding/query pipeline
 Africa's Talking USSD documentation for deeper session-flow coverage; then
 Ghana (MTN MoMo), Kenya (M-Pesa/Daraja), and South Africa (Ozow) corpora —
 the architecture adds a market by adding a scraper.
+
+**Hybrid dense + BM25 retrieval.** Corpus stress-testing (see Benchmarks)
+found a real hallucination bug: same-domain, wrong-provider chunks
+(e.g. Monnify content retrieved for an Interswitch question) scored *higher*
+cosine similarity than a correct out-of-domain decline — 0.712 vs 0.691 — so
+a similarity threshold couldn't distinguish them. We fixed it at the prompt
+layer (explicit named-entity grounding in the system prompt: 3/5 fabricating
+→ 0/5), which is fast to iterate and verified working. The more
+architecturally robust fix is retrieval-layer: adding a BM25/keyword
+component alongside the dense embeddings, since a query naming "Interswitch"
+would score near-zero on keyword match against a corpus that never mentions
+it, catching the mismatch before generation instead of after. We identified
+this and deliberately chose the prompt-level fix for this submission —
+implementing hybrid retrieval now means a new dependency and a re-tuned
+scoring path, which risks the RAM margin (currently 3.7-6.8% against the 7GB
+ceiling, the tightest number in this submission) for a benefit no current
+failing test case demonstrates. Right fix for a post-Gate-1 iteration, not
+a justified risk this close to submission.
