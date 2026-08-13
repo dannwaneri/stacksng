@@ -334,3 +334,14 @@ scoring path, which risks the RAM margin (currently 3.7-6.8% against the 7GB
 ceiling, the tightest number in this submission) for a benefit no current
 failing test case demonstrates. Right fix for a post-Gate-1 iteration, not
 a justified risk this close to submission.
+
+**Independent validation beyond our own test set.** All 20 adversarial
+prompts above were self-authored. To check the fix generalizes, not just
+passes our own test, we ran one real, independently-sourced question:
+two unconnected developers (on X and Reddit) separately hit the same
+real pain point — making a Paystack webhook handler idempotent — neither
+prompt written by us. Top-retrieved chunk was Monnify (sim 0.716, higher
+than any Paystack chunk), the same shape of mismatch that caused the
+original bug. The model correctly stayed on Paystack, gave the right
+fix (verify signature, then track processed event IDs), and cited only
+real, retrieved sources.
