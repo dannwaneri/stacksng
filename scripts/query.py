@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sqlite3
 import sys
 import urllib.error
@@ -42,6 +43,89 @@ Rules:
 - When you cite a specific fact, append the source URL in parentheses, e.g. (source: https://paystack.com/docs/api/transaction/#verify). Never cite a URL that does not appear in the context excerpts.
 - Prefer short, working code over prose. Use the language the user asks for, or fall back to the language already used in the context excerpt.
 """
+
+
+# Retrieval similarity can't reliably tell "same topic, different provider"
+# apart from "provider actually covered" when the topic is generic — webhook
+# signature verification is near-identical HMAC-SHA512 across providers, so a
+# PalmPay question retrieves Paystack/Monnify chunks at high similarity. The
+# SYSTEM_PROMPT instruction asking the model to self-check this measured only
+# 33% (Kuda) / 0% (PalmPay) reliable decline rate across repeated runs at
+# temperature=0.2 with no fixed seed (retest, 2026-08-16). For any brand name
+# enumerable ahead of time, skip the LLM and decline deterministically instead
+# of relying on a probabilistic instruction to hold.
+
+CORPUS_PROVIDER_ALIASES: dict[str, str] = {
+    "paystack": "Paystack",
+    "flutterwave": "Flutterwave",
+    "monnify": "Monnify",
+    "moniepoint": "Monnify",
+    "termii": "Termii",
+}
+
+KNOWN_OUT_OF_CORPUS_PROVIDERS: dict[str, str] = {
+    "kuda bank": "Kuda Bank",
+    "kuda": "Kuda Bank",
+    "palmpay": "PalmPay",
+    "interswitch": "Interswitch",
+    "quickteller": "Interswitch (Quickteller)",
+    "paga": "Paga",
+    "opay": "OPay",
+    "carbon": "Carbon",
+    "fairmoney": "FairMoney",
+    "cowrywise": "Cowrywise",
+    "piggyvest": "PiggyVest",
+    "chipper cash": "Chipper Cash",
+    "providus": "Providus Bank",
+    "gtbank": "GTBank",
+    "gtworld": "GTBank",
+    "access bank": "Access Bank",
+    "wema": "Wema Bank",
+    "alat": "ALAT by Wema",
+    "sterling bank": "Sterling Bank",
+    "vfd": "VFD Microfinance Bank",
+    "9psb": "9PSB",
+    "remita": "Remita",
+    "m-pesa": "M-Pesa",
+    "mpesa": "M-Pesa",
+    "mtn momo": "MTN MoMo",
+    "ozow": "Ozow",
+    "stripe": "Stripe",
+    "razorpay": "Razorpay",
+}
+
+
+def _find_provider_mentions(question: str, aliases: dict[str, str]) -> set[str]:
+    """Word-boundary, case-insensitive match of known brand aliases in the question."""
+    q = question.lower()
+    found: set[str] = set()
+    for alias, canonical in sorted(aliases.items(), key=lambda kv: -len(kv[0])):
+        if re.search(rf"\b{re.escape(alias)}\b", q):
+            found.add(canonical)
+    return found
+
+
+def check_provider_gate(question: str) -> str | None:
+    """Deterministic pre-generation gate for known out-of-corpus providers.
+
+    Returns a decline message if the question names a provider we know is
+    NOT in the corpus and does not also name one that is (a comparison
+    question naming both is left to retrieval + the LLM). Returns None to
+    proceed normally.
+    """
+    out_of_corpus = _find_provider_mentions(question, KNOWN_OUT_OF_CORPUS_PROVIDERS)
+    in_corpus = _find_provider_mentions(question, CORPUS_PROVIDER_ALIASES)
+    if out_of_corpus and not in_corpus:
+        names = " / ".join(sorted(out_of_corpus))
+        return (
+            f"{names} is not in my knowledge base. This assistant's corpus covers "
+            f"Paystack, Flutterwave, Monnify, and Termii only. I won't provide "
+            f"instructions for {names} under another provider's documented flow, "
+            f"since their APIs, headers, and endpoints differ and a substituted "
+            f"answer would be wrong. Please refer to {names}'s official developer "
+            f"documentation."
+        )
+    return None
 
 
 def embed_query(text: str) -> np.ndarray:
@@ -190,6 +274,14 @@ def main() -> int:
         parser.error("provide a question as positional arg or --question")
 
     print(f"Q: {question}\n")
+
+    gate_message = check_provider_gate(question)
+    if gate_message is not None:
+        print("=== Answer (deterministic provider gate — no LLM call) ===")
+        print(gate_message)
+        print("\n=== Sources ===")
+        print("  (none — question declined before retrieval)")
+        return 0
 
     matrix, rows = load_index(args.db)
     if not rows:
