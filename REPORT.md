@@ -317,23 +317,53 @@ Africa's Talking USSD documentation for deeper session-flow coverage; then
 Ghana (MTN MoMo), Kenya (M-Pesa/Daraja), and South Africa (Ozow) corpora —
 the architecture adds a market by adding a scraper.
 
-**Hybrid dense + BM25 retrieval.** Corpus stress-testing (see Benchmarks)
-found a real hallucination bug: same-domain, wrong-provider chunks
-(e.g. Monnify content retrieved for an Interswitch question) scored *higher*
-cosine similarity than a correct out-of-domain decline — 0.712 vs 0.691 — so
-a similarity threshold couldn't distinguish them. We fixed it at the prompt
-layer (explicit named-entity grounding in the system prompt: 3/5 fabricating
-→ 0/5), which is fast to iterate and verified working. The more
-architecturally robust fix is retrieval-layer: adding a BM25/keyword
-component alongside the dense embeddings, since a query naming "Interswitch"
-would score near-zero on keyword match against a corpus that never mentions
-it, catching the mismatch before generation instead of after. We identified
-this and deliberately chose the prompt-level fix for this submission —
-implementing hybrid retrieval now means a new dependency and a re-tuned
-scoring path, which risks the RAM margin (currently 3.7-6.8% against the 7GB
-ceiling, the tightest number in this submission) for a benefit no current
-failing test case demonstrates. Right fix for a post-Gate-1 iteration, not
-a justified risk this close to submission.
+**Hybrid dense + BM25 retrieval, and why a prompt-only fix wasn't enough.**
+Corpus stress-testing (see Benchmarks) found a real hallucination bug:
+same-domain, wrong-provider chunks (e.g. Monnify content retrieved for an
+Interswitch question) scored *higher* cosine similarity than a correct
+out-of-domain decline — 0.712 vs 0.691 — so a similarity threshold couldn't
+distinguish them. The first fix was prompt-level (explicit named-entity
+grounding in the system prompt), measured at 3/5 fabricating → 0/5 on one
+run against five out-of-corpus providers (Kuda, PalmPay, Interswitch, Paga,
+OPay).
+
+That single run wasn't the full story. An independent re-run of the same
+five prompts, three repetitions each (15 trials), found the prompt-level fix
+was reliable but *not uniformly*: Interswitch, Paga, and OPay held at 9/9
+(100%), while Kuda and PalmPay came back at 1/3 and 0/3 — 10/15 (66.7%)
+overall. The system prompt's chat call runs at `temperature=0.2` with no
+fixed seed, so any single run is a draw, not a guarantee — and Kuda/PalmPay
+draw badly because their webhook-verification content is near-identical in
+shape to Paystack/Monnify's (retrieved chunks clustered at cosine sim
+0.654–0.676, the tightest, most confusable band we measured), giving the
+model the most temptation to substitute exactly where grounding matters
+most.
+
+Fix: a deterministic pre-generation gate (`scripts/query.py`,
+`check_provider_gate`) — a curated list of ~25 known non-corpus African
+fintech/banking brand names, matched by word boundary against the incoming
+question. If a listed out-of-corpus provider is named and no in-corpus
+provider is also named, the question is declined before retrieval or
+generation ever run — zero dependency on sampling temperature or seed.
+Re-verified independently: 15/15 (100%) across all five original adversarial
+prompts, near-instant (no embedding call, no chat call). Regression-checked
+clean: in-corpus prompts still route through retrieval + generation normally
+(tp_001 unaffected), and a genuine comparison question naming both an
+in-corpus and out-of-corpus provider ("How does Kuda compare to Paystack for
+webhook handling?") correctly falls through to the softer prompt-level
+instruction instead of being blanket-refused.
+
+**Known residual limitation:** the deterministic gate only covers providers
+enumerated in advance. A brand not on that list still depends on the
+prompt-level instruction — the same mechanism measured at 100% for
+Interswitch/Paga/OPay but only 33%/0% for Kuda/PalmPay before the gate
+existed. Hybrid dense + BM25 retrieval remains the architecturally general
+fix (a query naming any provider absent from the corpus, known or not, would
+score near-zero on keyword match, catching the mismatch before generation
+instead of after enumeration). Deferred past this submission for the same
+reason as before — new dependency, re-tuned scoring path, RAM margin
+(3.7–6.8% against the 7GB ceiling) not worth risking for a benefit the
+enumerable gate already covers for every provider actually tested.
 
 **Independent validation beyond our own test set.** All 20 adversarial
 prompts above were self-authored. To check the fix generalizes, not just
