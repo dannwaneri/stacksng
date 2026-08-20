@@ -136,10 +136,10 @@ without invoking the LLM.
 ## Design Decisions
 
 - **Base model: qwen2.5-coder:7b** — purpose-built for code generation, and
-  the largest coder model that fits the 8 GB envelope at Q4_K_M. We measured
+  the largest coder model that fits the 8 GB envelope at Q4_K_M. I measured
   the smaller alternative rather than assuming: a 1.5B ablation (see
   Benchmarks) wins the score formula by 35 points but fabricates a
-  nonexistent client library on one of our two registered test prompts. In
+  nonexistent client library on one of my two registered test prompts. In
   payments code, "close" is a bug.
 - **Quantization: Q4_K_M** — Q8_0 exceeded the memory budget; Q2_K degraded
   code generation unacceptably (mangled identifiers, broken JSON).
@@ -213,7 +213,7 @@ Peak RSS across three separate container-constrained runs ranged 6678.78–
 above (6768.85 MB, 5.57%) sits in the middle of that range and is the most
 reference-faithful single measurement.
 
-### Why these numbers, and what we trade
+### Why these numbers, and what I trade
 
 A 7B Q4_K_M model is the largest that fits the 8 GB budget. Measured under a
 real enforced 7GB-class container ceiling, peak RSS sits around 6.6-6.9 GB
@@ -221,7 +221,7 @@ depending on the run — comfortable, but Seff (5.57) still stays modest
 relative to what a much smaller model could claim. That's a deliberate trade,
 not an oversight: Sacc carries 50% of the total score and Seff only 20%, and
 in this domain accuracy is the difference between working payments code and
-a security incident (see the 1.5B ablation below). We spend the memory
+a security incident (see the 1.5B ablation below). I spend the memory
 budget where the scoring — and the user — put the weight.
 
 The 33.5 s first-token figure is the profiler's fully cold measurement: it
@@ -232,7 +232,7 @@ scales with prompt length. Generation speed is unchanged either way (4.82 t/s).
 
 ### The 1.5B ablation — measuring the trade instead of asserting it
 
-The strongest formula play in this competition is a small model. We tested
+The strongest formula play in this competition is a small model. I tested
 it: qwen2.5-coder-**1.5b** at the same Q4_K_M quantization, through the
 identical RAG pipeline, profiled by the same `adtc-profiler` on the same
 machine.
@@ -245,7 +245,7 @@ machine.
 | Sperf / Seff | 32.13 / 1.60 | 100.00 / 76.11 |
 | Non-accuracy score (`0.3·Sperf + 0.2·Seff`) | **9.96** | **45.22** |
 
-On everything the formula measures, the 1.5B wins by ~35 points. We rejected
+On everything the formula measures, the 1.5B wins by ~35 points. I rejected
 it because of what happened on the registered test prompts:
 
 - **tp_001 (Paystack webhook):** tie. Both models produce the correct
@@ -261,7 +261,7 @@ it because of what happened on the registered test prompts:
   `X-Idempotency-Key`). Model capacity still decides synthesis questions.
 
 A payments assistant that fabricates the client library on half of its
-registered prompts is a fast, memory-efficient way to ship broken code. We
+registered prompts is a fast, memory-efficient way to ship broken code. I
 submit the 7B: the memory budget is spent where both the scoring weights
 (Sacc = 50 %) and the user's safety put it.
 
@@ -271,10 +271,10 @@ by the ADTC profiler on the standard evaluation machine.
 ### Sustained-load thermal test (native hardware, Aug 4 2026)
 
 The profiler's own `cpu_thermal.core_temp_c_peak` reads `null` in every run
-we produced (participant, audit, container, CPU-pinned) — expected, per the
+I produced (participant, audit, container, CPU-pinned) — expected, per the
 tool's own source: cloud VMs don't expose host thermal sensors, so the
 official audit environment can't observe temperature either. To get a real
-answer anyway, we ran a ~9-minute sustained load (`llama-bench`, 6 reps ×
+answer anyway, I ran a ~9-minute sustained load (`llama-bench`, 6 reps ×
 300 generated tokens) directly on the native dev laptop with
 [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor)
 polling CPU package temperature every 3 seconds.
@@ -335,7 +335,7 @@ overall. The system prompt's chat call runs at `temperature=0.2` with no
 fixed seed, so any single run is a draw, not a guarantee — and Kuda/PalmPay
 draw badly because their webhook-verification content is near-identical in
 shape to Paystack/Monnify's (retrieved chunks clustered at cosine sim
-0.654–0.676, the tightest, most confusable band we measured), giving the
+0.654–0.676, the tightest, most confusable band I measured), giving the
 model the most temptation to substitute exactly where grounding matters
 most.
 
@@ -365,12 +365,12 @@ reason as before — new dependency, re-tuned scoring path, RAM margin
 (3.7–6.8% against the 7GB ceiling) not worth risking for a benefit the
 enumerable gate already covers for every provider actually tested.
 
-**Independent validation beyond our own test set.** All 20 adversarial
+**Independent validation beyond my own test set.** All 20 adversarial
 prompts above were self-authored. To check the fix generalizes, not just
-passes our own test, we ran one real, independently-sourced question:
+passes my own test, I ran one real, independently-sourced question:
 two unconnected developers (on X and Reddit) separately hit the same
 real pain point — making a Paystack webhook handler idempotent — neither
-prompt written by us. Top-retrieved chunk was Monnify (sim 0.716, higher
+prompt written by me. Top-retrieved chunk was Monnify (sim 0.716, higher
 than any Paystack chunk), the same shape of mismatch that caused the
 original bug. The model correctly stayed on Paystack, gave the right
 fix (verify signature, then track processed event IDs), and cited only
