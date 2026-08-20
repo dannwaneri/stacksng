@@ -91,33 +91,40 @@
   .corpus-cell .n { font-size: 30px; font-weight: 700; color: var(--accent); }
   .corpus-cell .l { font-size: 16px; color: var(--dim); margin-top: 4px; }
 
-  /* ---------- scene 5: live console (real driven interaction) ---------- */
-  #scene-console { align-items: stretch; justify-content: flex-start; padding: 90px 160px; }
-  .console-wrap { width: 100%; max-width: 1600px; margin: 0 auto; }
-  .console-header {
-    font-size: 22px; color: var(--dim); margin-bottom: 26px;
-    display: flex; align-items: center; gap: 10px; font-family: var(--mono);
+  /* ---------- scene 5: live console (real driven interaction, styled as an actual terminal window) ---------- */
+  #scene-console { align-items: stretch; justify-content: flex-start; padding: 60px 160px; }
+  .console-wrap {
+    width: 100%; max-width: 1600px; margin: 0 auto;
+    background: #0d1117; border: 1px solid var(--border); border-radius: 12px;
+    overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,0.5);
   }
-  .console-header .dot-mark { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+  .console-titlebar {
+    display: flex; align-items: center; gap: 20px;
+    background: #161b22; padding: 14px 22px; border-bottom: 1px solid var(--border);
+  }
+  .console-titlebar .dots { display: flex; gap: 8px; }
+  .console-titlebar .dots span { width: 12px; height: 12px; border-radius: 50%; display: block; }
+  .console-titlebar .dots span:nth-child(1) { background: #ff5f56; }
+  .console-titlebar .dots span:nth-child(2) { background: #ffbd2e; }
+  .console-titlebar .dots span:nth-child(3) { background: #27c93f; }
+  .console-titlebar .title { font-family: var(--mono); font-size: 16px; color: var(--dim); }
+  .console-body { padding: 30px 36px 44px; }
   .console-inputrow {
-    display: flex; align-items: center; gap: 18px;
-    background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
-    padding: 22px 28px;
+    display: flex; align-items: center; gap: 10px;
   }
-  .console-inputrow .prompt { color: var(--accent); font-family: var(--mono); font-size: 28px; }
+  .console-inputrow .prompt { color: var(--accent); font-family: var(--mono); font-size: 20px; white-space: nowrap; }
   .console-input {
     flex: 1; background: transparent; border: none; outline: none;
-    color: var(--text); font-family: var(--mono); font-size: 25px;
+    color: var(--text); font-family: var(--mono); font-size: 20px; caret-color: var(--accent);
   }
   .console-input::placeholder { color: var(--dim); }
   .ask-btn {
-    background: var(--accent); color: #06170d; border: none; border-radius: 10px;
-    padding: 14px 32px; font-size: 21px; font-weight: 700; cursor: pointer; font-family: var(--sans);
+    background: transparent; color: var(--accent); border: none;
+    font-family: var(--mono); font-size: 22px; cursor: pointer; padding: 2px 8px;
   }
-  .ask-btn:active { transform: scale(0.96); }
+  .ask-btn:active { transform: scale(0.9); }
   .answer-area {
-    margin-top: 30px; background: #0d1117; border: 1px solid var(--border); border-radius: 14px;
-    padding: 34px 40px; font-family: var(--mono); font-size: 18px; line-height: 1.55;
+    margin-top: 22px; font-family: var(--mono); font-size: 18px; line-height: 1.55;
     color: #c9d1d9; white-space: pre-wrap; min-height: 200px;
   }
   .answer-area .q { color: #79c0ff; }
@@ -189,16 +196,22 @@
     </div>
   </section>
 
-  <!-- 5. LIVE CONSOLE — real input/button driven by testreel type/click steps -->
+  <!-- 5. LIVE CONSOLE — real input/button driven by testreel type/click steps, styled as an actual terminal -->
   <section class="scene" id="scene-console">
     <div class="console-wrap">
-      <div class="console-header"><span class="dot-mark"></span>StacksNG — query console (localhost, offline)</div>
-      <div class="console-inputrow">
-        <span class="prompt">&gt;</span>
-        <input id="qinput" class="console-input" type="text" placeholder="Ask about Paystack, Flutterwave, Monnify, Termii&hellip;" autocomplete="off" />
-        <button id="ask-btn" type="button" class="ask-btn">Ask</button>
+      <div class="console-titlebar">
+        <div class="dots"><span></span><span></span><span></span></div>
+        <div class="title">stacksng — offline, no network</div>
       </div>
-      <div id="answer-area" class="answer-area"></div>
+      <div class="console-body">
+        <div class="console-inputrow">
+          <span class="prompt">PS C:\stacksng&gt; python scripts/query.py &quot;</span>
+          <input id="qinput" class="console-input" type="text" autocomplete="off" />
+          <span class="prompt">&quot;</span>
+          <button id="ask-btn" type="button" class="ask-btn">&crarr;</button>
+        </div>
+        <div id="answer-area" class="answer-area"></div>
+      </div>
     </div>
   </section>
 
@@ -246,9 +259,7 @@
   // on an actual click, not a blind timer. See demo_assets/text/ for the
   // raw captures this was built from.
   const ANSWERS = [
-    `<span class="q">$ python scripts/query.py "How do I verify a Paystack webhook signature in Node.js?"</span>
-
-<span class="kw">const</span> crypto = require(<span class="code">'crypto'</span>);
+    `<span class="kw">const</span> crypto = require(<span class="code">'crypto'</span>);
 <span class="kw">const</span> secret = process.env.SECRET_KEY;
 
 app.post(<span class="code">'/my/webhook/url'</span>, <span class="kw">function</span>(req, res) {
@@ -262,9 +273,7 @@ app.post(<span class="code">'/my/webhook/url'</span>, <span class="kw">function<
 });
 
 <span class="src">Source: paystack.com/docs/payments/webhooks/#verify-event-origin</span>`,
-    `<span class="q">$ python scripts/query.py "How do I initialize a Flutterwave payment and handle the redirect callback in Python?"</span>
-
-<span class="kw">import</span> requests
+    `<span class="kw">import</span> requests
 
 <span class="kw">def</span> create_customer(api_key, customer_data):
     url = <span class="code">"https://developersandbox-api.flutterwave.com/customers"</span>

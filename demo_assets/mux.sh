@@ -6,7 +6,12 @@ FF="C:/Users/DELL/tools/testreel/node_modules/ffmpeg-static/ffmpeg.exe"
 DIR="C:/Users/DELL/stacksng/demo_assets"
 
 SILENT_VIDEO="${1:-$DIR/testreel-output/output.mp4}"
-NARRATION="$DIR/audio/narration_full.wav"
+# v2 re-cut (Aug 3, 2026): scene timings in web/index.html were recomputed
+# for narration_full_v2.wav (80.85s), not the original narration_full.wav
+# (115.43s). Muxing the v1 file against v2-tuned scene timing is what
+# caused "slides are faster than audio" — the visuals finish 35s before
+# a 115s narration track does.
+NARRATION="$DIR/audio/narration_full_v2.wav"
 OUT="C:/Users/DELL/stacksng/demo.mp4"
 
 echo "silent video: $SILENT_VIDEO"
