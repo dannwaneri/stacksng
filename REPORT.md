@@ -365,6 +365,30 @@ reason as before — new dependency, re-tuned scoring path, RAM margin
 (3.7–6.8% against the 7GB ceiling) not worth risking for a benefit the
 enumerable gate already covers for every provider actually tested.
 
+**False-decline class found post-publication (2026-08-21).** A DEV.to
+commenter (Heinrich Neb) flagged that the gate's provider list mixed two
+different things: genuine competing payment/fintech providers (Kuda,
+PalmPay, Interswitch, Paga, OPay, and others) and ordinary commercial
+settlement banks (GTBank, Access Bank, Wema, Sterling, VFD, Providus, 9PSB).
+The second group is near-universal incidental context inside the corpus's
+own strongest material — NUBAN transfers, dedicated virtual accounts,
+BVN-linked accounts all legitimately name a settlement bank without that
+bank being the provider whose API is being asked about. Reproduced it
+directly: "How do I implement BVN verification for a customer with a Wema
+Bank account?" declined even though BVN verification is genuinely covered,
+Wema was just the customer's bank. Same pattern with GTBank and Access Bank
+in a virtual-account context — a false decline that looks byte-for-byte
+identical to a correct one, no error signal anywhere.
+
+Fix: removed the seven plain commercial banks from the gate's provider list,
+keeping only entities where "asking about their API" is the dominant
+reading of the question. Re-verified: the 8 questions that previously
+false-declined now pass through correctly (7 of 8 — the 8th, a Kuda-specific
+USSD question, correctly stays gated since Kuda is a genuine fintech
+competitor, not a settlement bank), all 5 adversarial prompts still decline
+as documented above, and both registered test prompts (tp_001, tp_002)
+are unaffected.
+
 **Independent validation beyond my own test set.** All 20 adversarial
 prompts above were self-authored. To check the fix generalizes, not just
 passes my own test, I ran one real, independently-sourced question:

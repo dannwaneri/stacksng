@@ -63,6 +63,17 @@ CORPUS_PROVIDER_ALIASES: dict[str, str] = {
     "termii": "Termii",
 }
 
+# Deliberately excludes ordinary commercial/settlement banks (GTBank, Access
+# Bank, Wema, Sterling, VFD, Providus, 9PSB). A DEV.to reader (Heinrich Neb)
+# found these caused false declines: "How do I implement BVN verification for
+# a customer with a Wema Bank account?" was declining even though BVN
+# verification is genuinely covered — Wema was just the customer's bank, not
+# the API being asked about. Those banks are near-universal incidental
+# context in the corpus's own strongest material (NUBAN transfers, dedicated
+# virtual accounts, BVN-linked accounts), so gating on their names silently
+# breaks legitimate in-scope questions. Only gate on entities where "asking
+# about their API" is the dominant reading: competing payment/fintech
+# providers, not the banks that sit underneath a covered provider's rails.
 KNOWN_OUT_OF_CORPUS_PROVIDERS: dict[str, str] = {
     "kuda bank": "Kuda Bank",
     "kuda": "Kuda Bank",
@@ -76,15 +87,6 @@ KNOWN_OUT_OF_CORPUS_PROVIDERS: dict[str, str] = {
     "cowrywise": "Cowrywise",
     "piggyvest": "PiggyVest",
     "chipper cash": "Chipper Cash",
-    "providus": "Providus Bank",
-    "gtbank": "GTBank",
-    "gtworld": "GTBank",
-    "access bank": "Access Bank",
-    "wema": "Wema Bank",
-    "alat": "ALAT by Wema",
-    "sterling bank": "Sterling Bank",
-    "vfd": "VFD Microfinance Bank",
-    "9psb": "9PSB",
     "remita": "Remita",
     "m-pesa": "M-Pesa",
     "mpesa": "M-Pesa",
