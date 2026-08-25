@@ -97,12 +97,33 @@ KNOWN_OUT_OF_CORPUS_PROVIDERS: dict[str, str] = {
 }
 
 
+# Some brand names are also ordinary English words, so a bare word-boundary
+# match false-fires on their common non-brand use. Found by a DEV.to reader
+# (Heinrich Neb, 2026-08-21): "How do I add a carbon copy recipient to my
+# transactional emails?" declined, citing Carbon the lender, on a question
+# with no fintech brand in it at all. Same risk with "stripe" ("a racing
+# stripe design", "a magnetic stripe card"). These two collocations are
+# stripped from the text before matching, so a genuine standalone mention
+# ("Carbon's loan API") still gates correctly.
+AMBIGUOUS_PROVIDER_EXCLUSIONS: dict[str, re.Pattern] = {
+    "carbon": re.compile(
+        r"\bcarbon\s+(copy|copies|footprint|dioxide|neutral|fiber|fibre|emissions?)\b"
+    ),
+    "stripe": re.compile(
+        r"\b(racing|pin|magnetic|card|zebra)\s+stripes?\b"
+        r"|\bstripes?\s+(pattern|design|shirt|card)\b"
+    ),
+}
+
+
 def _find_provider_mentions(question: str, aliases: dict[str, str]) -> set[str]:
     """Word-boundary, case-insensitive match of known brand aliases in the question."""
     q = question.lower()
     found: set[str] = set()
     for alias, canonical in sorted(aliases.items(), key=lambda kv: -len(kv[0])):
-        if re.search(rf"\b{re.escape(alias)}\b", q):
+        exclusion = AMBIGUOUS_PROVIDER_EXCLUSIONS.get(alias)
+        text = exclusion.sub(" ", q) if exclusion else q
+        if re.search(rf"\b{re.escape(alias)}\b", text):
             found.add(canonical)
     return found
 

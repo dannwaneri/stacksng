@@ -389,6 +389,29 @@ competitor, not a settlement bank), all 5 adversarial prompts still decline
 as documented above, and both registered test prompts (tp_001, tp_002)
 are unaffected.
 
+**Second false-decline class, same day: lexical collision.** Heinrich Neb
+found a different failure mechanism within hours of the bank-name fix
+going up: two denylisted brand names, Carbon and Stripe, are also ordinary
+English words. "How do I add a carbon copy recipient to my transactional
+emails?" declined and cited Carbon the lender, on a question naming no
+fintech brand at all. Same risk with "a racing stripe design" and "a
+magnetic stripe card" falsely citing Stripe. Unlike the bank-name fix,
+these two can't just be removed from the list — Carbon and Stripe are
+genuine competing providers, and a real question about either should
+still decline.
+
+Fix: known non-brand collocations ("carbon copy," "carbon footprint,"
+"racing stripe," "magnetic stripe," etc.) are stripped from the question
+text before the word-boundary match runs, so a bare mention of the phrase
+doesn't fire the gate but a genuine standalone brand mention still does.
+
+Both fixes are now permanent regression tests
+(`tests/test_provider_gate.py`, 7 cases: registered prompts, the original
+adversarial set, the settlement-bank false declines, the lexical-collision
+false declines, and confirmation that genuine mentions of the ambiguous
+brands still gate). Heinrich's point stood: the gate that protects against
+fabrication had zero tests of its own. It has them now.
+
 **Independent validation beyond my own test set.** All 20 adversarial
 prompts above were self-authored. To check the fix generalizes, not just
 passes my own test, I ran one real, independently-sourced question:
