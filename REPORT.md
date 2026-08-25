@@ -406,11 +406,26 @@ text before the word-boundary match runs, so a bare mention of the phrase
 doesn't fire the gate but a genuine standalone brand mention still does.
 
 Both fixes are now permanent regression tests
-(`tests/test_provider_gate.py`, 7 cases: registered prompts, the original
+(`tests/test_provider_gate.py`, 8 cases: registered prompts, the original
 adversarial set, the settlement-bank false declines, the lexical-collision
 false declines, and confirmation that genuine mentions of the ambiguous
 brands still gate). Heinrich's point stood: the gate that protects against
 fabrication had zero tests of its own. It has them now.
+
+**Third failure mode, addressed conservatively under deadline pressure:
+list drift.** Heinrich's original comment named a third risk — corpus.db
+and `CORPUS_PROVIDER_ALIASES` are two hand-maintained sources of truth
+about what's in scope, and nothing checks they stay in sync. His suggested
+fix is architecturally complete: have the gate read scope from corpus.db
+directly at query time instead of a hardcoded dict. Deliberately did not
+do that with under 7 hours to the submission deadline — it would touch
+the hot path of every single query for a divergence that isn't currently
+happening. Instead, added a test that fails the moment corpus.db's actual
+`source` values and the alias dict's canonical values stop matching
+exactly. Same protection against the failure mode Heinrich named, zero
+change to the runtime gate, so nothing that already works could break.
+The live-derivation version remains the better long-term fix and is
+explicitly deferred, not solved.
 
 **Independent validation beyond my own test set.** All 20 adversarial
 prompts above were self-authored. To check the fix generalizes, not just

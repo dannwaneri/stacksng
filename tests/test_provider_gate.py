@@ -22,7 +22,12 @@ Heinrich's point that the gate itself had zero tests protecting it —
 the mutation-tested filter in test_search_verified.py was "the only
 guarded guard in the repo." This file is the second one.
 """
-from scripts.query import check_provider_gate
+import sqlite3
+from pathlib import Path
+
+from scripts.query import CORPUS_PROVIDER_ALIASES, check_provider_gate
+
+DB_PATH = Path(__file__).resolve().parent.parent / "corpus.db"
 
 
 # --- Registered test prompts and the original adversarial set must still
@@ -87,3 +92,37 @@ def test_comparison_question_naming_both_falls_through_to_retrieval():
     """An in-corpus provider named alongside an ambiguous/out-of-corpus one
     is a legitimate comparison question, not a pure out-of-scope ask."""
     assert check_provider_gate("How do I compare Paystack webhooks to Stripe webhooks?") is None
+
+
+# --- Failure mechanism 3: list drift (Heinrich Neb, original comment) ---
+#
+# corpus.db and CORPUS_PROVIDER_ALIASES are two hand-maintained sources of
+# truth about what's in scope, and nothing at runtime checks they stay in
+# sync. The architecturally complete fix — have the gate read scope from
+# corpus.db directly instead of a hardcoded dict — was deliberately not
+# done here: it touches the hot path of every query, 7 hours before the
+# submission deadline, for a divergence that isn't currently happening
+# (verified below). A test that fails loudly the moment they do diverge
+# is the safer version of the same protection: it can't destabilize
+# anything that's working today, and it still catches the exact bug class
+# Heinrich flagged — corpus and denylist quietly falling out of sync — the
+# next time either one changes.
+
+def test_corpus_sources_match_alias_canonical_values_exactly():
+    """If someone scrapes a 5th provider into corpus.db and forgets to add
+    it to CORPUS_PROVIDER_ALIASES (or vice versa), this fails immediately
+    instead of silently mis-gating real questions later."""
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        db_sources = {
+            row[0].lower() for row in conn.execute("SELECT DISTINCT source FROM corpus")
+        }
+    finally:
+        conn.close()
+
+    alias_canonical_values = {v.lower() for v in CORPUS_PROVIDER_ALIASES.values()}
+
+    assert db_sources == alias_canonical_values, (
+        f"corpus.db sources {db_sources} and CORPUS_PROVIDER_ALIASES "
+        f"{alias_canonical_values} have drifted apart"
+    )
