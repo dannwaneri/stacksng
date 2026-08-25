@@ -13,12 +13,12 @@ internet, dollar payments, and AWS.
 For a developer in Port Harcourt, Lagos, or anywhere across Nigeria, that's not reality.
 The African developer stack is Paystack, Flutterwave, Moniepoint, USSD flows, NGN/kobo
 currency handling, and BVN verification. No existing AI coding tool knows this stack
-deeply — and none of them run offline.
+deeply. None of them run offline.
 
 ## What it does
 
 Ask StacksNG how to verify a Paystack webhook, handle a Flutterwave bank transfer,
-implement USSD flows, or format NGN currency — it answers correctly, with citations,
+implement USSD flows, or format NGN currency: it answers correctly, with citations,
 entirely on-device.
 
 ```
@@ -51,13 +51,13 @@ if (hash === req.headers['x-paystack-signature']) {
 
 StacksNG is a RAG (Retrieval-Augmented Generation) system:
 
-1. **Corpus** — 780 chunks scraped from Paystack, Flutterwave, Monnify, and Termii
+1. **Corpus**: 780 chunks scraped from Paystack, Flutterwave, Monnify, and Termii
    official documentation
-2. **Embeddings** — each chunk embedded with `nomic-embed-text` via Ollama, stored
+2. **Embeddings**: each chunk embedded with `nomic-embed-text` via Ollama, stored
    in SQLite
-3. **Retrieval** — when you ask a question, the most relevant chunks are found via
+3. **Retrieval**: when you ask a question, the most relevant chunks are found via
    vector similarity search
-4. **Generation** — `qwen2.5-coder:7b` generates an answer using the retrieved
+4. **Generation**: `qwen2.5-coder:7b` generates an answer using the retrieved
    context, citing the source
 
 | Source | Chunks |
@@ -104,22 +104,23 @@ python scripts/query.py "How do I verify a Paystack webhook signature?"
 
 Cloud-hosted LLMs require API fees, stable fiber, and sustained electricity. For a
 university student in Lagos, an extension officer in Arusha, or a small-business
-owner in Dakar, these are not minor frictions — they are blockers.
+owner in Dakar, these are not minor frictions. They are blockers.
 
 StacksNG proves that specialized, accurate AI tooling can run entirely offline on
-the hardware people already own — without asking African developers to adapt to
+the hardware people already own, without asking African developers to adapt to
 infrastructure built for someone else.
 
 ## Built for
 
-[Africa Deep Tech Challenge 2026](https://adtc-2026.devpost.com/) — The Laptop LLM
+[Africa Deep Tech Challenge 2026](https://adtc-2026.devpost.com/): The Laptop LLM
 Challenge, Coding Assistants track.
 
 ## What's next
 
 - Africa's Talking USSD documentation for deeper offline coverage
 - CLI polish and developer experience improvements
-- Fine-tuning on the African stack corpus
+- Hybrid dense + BM25 retrieval, the more general fix for entity-grounding
+  than the deterministic gate currently covers (see REPORT.md)
 - Expansion to Ghana (MTN MoMo), Kenya (M-Pesa), and South Africa (Ozow)
 
 ## License
