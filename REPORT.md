@@ -1,4 +1,4 @@
-# Technical Report — StacksNG
+# Technical Report: StacksNG
 
 **Team ID:** 1067588-stacksng
 **Domain:** coding_assistants
@@ -7,7 +7,7 @@
 StacksNG is an offline coding assistant for the African fintech stack: a
 780-chunk RAG corpus built from Paystack, Flutterwave, Monnify (Moniepoint),
 and Termii documentation, retrieved by local embeddings and answered by
-qwen2.5-coder:7b — no internet, no API keys, every answer cited back to the
+qwen2.5-coder:7b: no internet, no API keys, every answer cited back to the
 official docs.
 
 ---
@@ -17,27 +17,27 @@ official docs.
 Nigerian and African developers build on a different stack than the rest of
 the world. Paystack, Flutterwave, Moniepoint, USSD flows, NGN/kobo currency
 handling, and BVN verification are the primitives of African fintech
-development — and they are precisely the topics where general-purpose coding
+development. They are precisely the topics where general-purpose coding
 assistants are weakest, because these APIs are thinly represented in training
 data and change faster than model retraining cycles.
 
-The failure mode is not "no answer" — it is a confidently wrong answer: a
+The failure mode is not "no answer." It is a confidently wrong answer: a
 hallucinated endpoint, an amount passed in naira when the API expects kobo, a
 webhook accepted without signature verification. In payments code, each of
 those is a production incident or a security hole.
 
 StacksNG's answer is grounding: every response is generated from retrieved
 passages of the official documentation and cites the exact source URL, so the
-developer can verify the claim in one click — or trust it offline when there
+developer can verify the claim in one click, or trust it offline when there
 is no connectivity to verify with.
 
 Target user: African software developers building fintech integrations on
 laptops they already own, under data and power constraints they don't control.
 
 Distribution is not hypothetical. Nigeria and the wider region already have
-active developer communities built around exactly this stack — Data Science
+active developer communities built around exactly this stack (Data Science
 Nigeria, Zindi, Deep Learning Indaba, and Microsoft's Africa Development
-Centre — where fintech-integration questions come up routinely. StacksNG
+Centre) where fintech-integration questions come up routinely. StacksNG
 ships as an open-source CLI so it can be picked up there directly, not sold
 into a fintech's compliance department: the customer is the developer
 already building against these APIs, not the bank.
@@ -56,9 +56,9 @@ machine, `--retrieval-only`):
 | tp_001 — Paystack webhook signature in Node.js | `paystack.com/docs/payments/webhooks/#verify-event-origin` | 0.743 |
 | tp_002 — Flutterwave payment init in Python | `developer.flutterwave.com` collections-inflow guide | 0.713 |
 
-For tp_001 the grounded answer contains the three facts that matter — HMAC
+For tp_001 the grounded answer contains the three facts that matter: HMAC
 **SHA-512** over the raw request body, keyed with the **secret key**, compared
-against the **`x-paystack-signature`** header — with the source URL appended.
+against the **`x-paystack-signature`** header, with the source URL appended.
 An ungrounded model frequently gets the hash algorithm or header name wrong;
 this is exactly the class of error the corpus eliminates.
 
@@ -79,7 +79,7 @@ question ──► nomic-embed-text (Ollama, local)
          qwen2.5-coder:7b Q4_K_M (llama.cpp, CPU) ──► streamed answer + source URLs
 ```
 
-Only two boxes in that diagram touch a model — the embedding call and the final
+Only two boxes in that diagram touch a model: the embedding call and the final
 generation call. Everything else (scraping, chunking, cosine ranking, prompt
 assembly, citation extraction) is deterministic Python: same query, same corpus,
 same retrieved chunks and prompt, every time. What the model sees is fully
@@ -98,7 +98,7 @@ Corpus composition:
 
 ---
 
-## The African use case — and why it is load-bearing
+## The African use case, and why it is load-bearing
 
 The cross-disciplinary pairing (fintech) is not thematic garnish; the corpus
 content is the product. Verifiable against the shipped `corpus.db`:
@@ -115,8 +115,8 @@ content is the product. Verifiable against the shipped `corpus.db`:
 | Offline pay-ins via agency banking ("Moniepoint Business Owner" locations) | 7 |
 
 The last row is content that exists in no Western coding assistant's mental
-model: cash collection through Moniepoint's agent network — agents in every
-local government area in Nigeria — surfaced to merchants as an API. A
+model: cash collection through Moniepoint's agent network (agents in every
+local government area in Nigeria) surfaced to merchants as an API. A
 developer asking about it gets a grounded answer here and a hallucination
 anywhere else.
 
@@ -135,19 +135,19 @@ without invoking the LLM.
 
 ## Design Decisions
 
-- **Base model: qwen2.5-coder:7b** — purpose-built for code generation, and
+- **Base model: qwen2.5-coder:7b**: purpose-built for code generation, and
   the largest coder model that fits the 8 GB envelope at Q4_K_M. I measured
   the smaller alternative rather than assuming: a 1.5B ablation (see
   Benchmarks) wins the score formula by 35 points but fabricates a
   nonexistent client library on one of my two registered test prompts. In
   payments code, "close" is a bug.
-- **Quantization: Q4_K_M** — Q8_0 exceeded the memory budget; Q2_K degraded
+- **Quantization: Q4_K_M**: Q8_0 exceeded the memory budget; Q2_K degraded
   code generation unacceptably (mangled identifiers, broken JSON).
-- **RAG over fine-tuning** — the corpus is documentation, not instruction
+- **RAG over fine-tuning**: the corpus is documentation, not instruction
   pairs. RAG gives citation traceability (every answer carries source URLs)
   and the corpus can be re-scraped in minutes when an API changes, with no
   retraining. The scrapers ship in `scrapers/`.
-- **SQLite + numpy over a vector DB** — 780 × 768-d float32 vectors is
+- **SQLite + numpy over a vector DB**: 780 × 768-d float32 vectors is
   ~2.3 MB; brute-force cosine over it takes milliseconds. A vector database
   would add an install dependency for zero benefit at this scale, and every
   dependency matters when the target machine is offline.
@@ -160,12 +160,12 @@ without invoking the LLM.
 
 - Target: 8 GB RAM, integrated graphics, no discrete GPU.
 - Pure CPU inference via llama.cpp.
-- No internet dependency at runtime — corpus is local SQLite, model is local GGUF.
+- No internet dependency at runtime: corpus is local SQLite, model is local GGUF.
   Verified, not assumed: ran `scripts/query.py` end-to-end with a Windows Firewall
   outbound-block rule on `python.exe` (loopback exempted, so the process could
-  still reach the local Ollama daemon but nothing else) — retrieval, generation,
+  still reach the local Ollama daemon but nothing else). Retrieval, generation,
   and citations all completed successfully with zero internet access available.
-- Power unreliability — the assistant must be useful in short sessions
+- Power unreliability: the assistant must be useful in short sessions
   between outages, which favours grounded, concise, correct-first-time answers
   over long exploratory generations.
 
@@ -193,11 +193,11 @@ development machine. See `submission.json` for the full report.
 ### Self-reported scores (Sacc placeholder = 0)
 
 The table above is the original dev-box measurement (16GB Windows box, no
-enforced ceiling) — kept for context. It was superseded on Aug 3-4 2026 by
+enforced ceiling), kept for context. It was superseded on Aug 3-4 2026 by
 runs inside a Docker container matching the actual reference profile exactly
 (`--memory=7.5g --cpus=4`, `Dockerfile.profiler`, pinned `llama.cpp` b10240,
 CPU-only, Ubuntu 22.04), verified with `adtc-profiler compare` (`verdict: PASS`,
-all checks within official tolerance — see `artifacts/verdict.json`). These
+all checks within official tolerance, see `artifacts/verdict.json`). These
 are the figures actually entered on Devpost:
 
 | Component | Formula | Value |
@@ -217,12 +217,12 @@ reference-faithful single measurement.
 
 A 7B Q4_K_M model is the largest that fits the 8 GB budget. Measured under a
 real enforced 7GB-class container ceiling, peak RSS sits around 6.6-6.9 GB
-depending on the run — comfortable, but Seff (5.57) still stays modest
+depending on the run. Comfortable, but Seff (5.57) still stays modest
 relative to what a much smaller model could claim. That's a deliberate trade,
 not an oversight: Sacc carries 50% of the total score and Seff only 20%, and
 in this domain accuracy is the difference between working payments code and
 a security incident (see the 1.5B ablation below). I spend the memory
-budget where the scoring — and the user — put the weight.
+budget where the scoring and the user both put the weight.
 
 The 33.5 s first-token figure is the profiler's fully cold measurement: it
 includes mapping the 4.68 GB model file from disk and evaluating a 512-token
@@ -230,7 +230,7 @@ prompt. In interactive use the model file stays in the OS page cache after
 the first query, which removes the load component; time to first token then
 scales with prompt length. Generation speed is unchanged either way (4.82 t/s).
 
-### The 1.5B ablation — measuring the trade instead of asserting it
+### The 1.5B ablation: measuring the trade instead of asserting it
 
 The strongest formula play in this competition is a small model. I tested
 it: qwen2.5-coder-**1.5b** at the same Q4_K_M quantization, through the
@@ -253,8 +253,8 @@ it because of what happened on the registered test prompts:
   retrieved chunk contains Paystack's reference implementation and
   transcription is sufficient. Retrieval equalizes lookup questions.
 - **tp_002 (Flutterwave payment init):** the 1.5B opened with
-  `import flutterwave` and a `flutterwave.Client(...)` API — **a Python
-  client library that does not exist** — wrapping otherwise
+  `import flutterwave` and a `flutterwave.Client(...)` API (**a Python
+  client library that does not exist**), wrapping otherwise
   correctly-grounded payload fields. The 7B, given identical context, wrote
   `requests` calls against the real documented endpoints
   (`/customers`, `/payment-methods`) with the real headers (`X-Trace-Id`,
@@ -271,7 +271,7 @@ by the ADTC profiler on the standard evaluation machine.
 ### Sustained-load thermal test (native hardware, Aug 4 2026)
 
 The profiler's own `cpu_thermal.core_temp_c_peak` reads `null` in every run
-I produced (participant, audit, container, CPU-pinned) — expected, per the
+I produced (participant, audit, container, CPU-pinned), expected, per the
 tool's own source: cloud VMs don't expose host thermal sensors, so the
 official audit environment can't observe temperature either. To get a real
 answer anyway, I ran a ~9-minute sustained load (`llama-bench`, 6 reps ×
@@ -314,14 +314,14 @@ scrapers that built it (`scrapers/`), and the embedding/query pipeline
 ## Roadmap
 
 Africa's Talking USSD documentation for deeper session-flow coverage; then
-Ghana (MTN MoMo), Kenya (M-Pesa/Daraja), and South Africa (Ozow) corpora —
-the architecture adds a market by adding a scraper.
+Ghana (MTN MoMo), Kenya (M-Pesa/Daraja), and South Africa (Ozow) corpora.
+The architecture adds a market by adding a scraper.
 
 **Hybrid dense + BM25 retrieval, and why a prompt-only fix wasn't enough.**
 Corpus stress-testing (see Benchmarks) found a real hallucination bug:
 same-domain, wrong-provider chunks (e.g. Monnify content retrieved for an
 Interswitch question) scored *higher* cosine similarity than a correct
-out-of-domain decline — 0.712 vs 0.691 — so a similarity threshold couldn't
+out-of-domain decline (0.712 vs 0.691), so a similarity threshold couldn't
 distinguish them. The first fix was prompt-level (explicit named-entity
 grounding in the system prompt), measured at 3/5 fabricating → 0/5 on one
 run against five out-of-corpus providers (Kuda, PalmPay, Interswitch, Paga,
@@ -330,9 +330,9 @@ OPay).
 That single run wasn't the full story. An independent re-run of the same
 five prompts, three repetitions each (15 trials), found the prompt-level fix
 was reliable but *not uniformly*: Interswitch, Paga, and OPay held at 9/9
-(100%), while Kuda and PalmPay came back at 1/3 and 0/3 — 10/15 (66.7%)
+(100%), while Kuda and PalmPay came back at 1/3 and 0/3: 10/15 (66.7%)
 overall. The system prompt's chat call runs at `temperature=0.2` with no
-fixed seed, so any single run is a draw, not a guarantee — and Kuda/PalmPay
+fixed seed, so any single run is a draw, not a guarantee, and Kuda/PalmPay
 draw badly because their webhook-verification content is near-identical in
 shape to Paystack/Monnify's (retrieved chunks clustered at cosine sim
 0.654–0.676, the tightest, most confusable band I measured), giving the
@@ -340,11 +340,11 @@ model the most temptation to substitute exactly where grounding matters
 most.
 
 Fix: a deterministic pre-generation gate (`scripts/query.py`,
-`check_provider_gate`) — a curated list of ~25 known non-corpus African
+`check_provider_gate`): a curated list of ~25 known non-corpus African
 fintech/banking brand names, matched by word boundary against the incoming
 question. If a listed out-of-corpus provider is named and no in-corpus
 provider is also named, the question is declined before retrieval or
-generation ever run — zero dependency on sampling temperature or seed.
+generation ever run. Zero dependency on sampling temperature or seed.
 Re-verified independently: 15/15 (100%) across all five original adversarial
 prompts, near-instant (no embedding call, no chat call). Regression-checked
 clean: in-corpus prompts still route through retrieval + generation normally
@@ -355,13 +355,13 @@ instruction instead of being blanket-refused.
 
 **Known residual limitation:** the deterministic gate only covers providers
 enumerated in advance. A brand not on that list still depends on the
-prompt-level instruction — the same mechanism measured at 100% for
+prompt-level instruction: the same mechanism measured at 100% for
 Interswitch/Paga/OPay but only 33%/0% for Kuda/PalmPay before the gate
 existed. Hybrid dense + BM25 retrieval remains the architecturally general
 fix (a query naming any provider absent from the corpus, known or not, would
 score near-zero on keyword match, catching the mismatch before generation
 instead of after enumeration). Deferred past this submission for the same
-reason as before — new dependency, re-tuned scoring path, RAM margin
+reason as before: new dependency, re-tuned scoring path, RAM margin
 (3.7–6.8% against the 7GB ceiling) not worth risking for a benefit the
 enumerable gate already covers for every provider actually tested.
 
@@ -371,19 +371,19 @@ different things: genuine competing payment/fintech providers (Kuda,
 PalmPay, Interswitch, Paga, OPay, and others) and ordinary commercial
 settlement banks (GTBank, Access Bank, Wema, Sterling, VFD, Providus, 9PSB).
 The second group is near-universal incidental context inside the corpus's
-own strongest material — NUBAN transfers, dedicated virtual accounts,
+own strongest material: NUBAN transfers, dedicated virtual accounts,
 BVN-linked accounts all legitimately name a settlement bank without that
 bank being the provider whose API is being asked about. Reproduced it
 directly: "How do I implement BVN verification for a customer with a Wema
 Bank account?" declined even though BVN verification is genuinely covered,
 Wema was just the customer's bank. Same pattern with GTBank and Access Bank
-in a virtual-account context — a false decline that looks byte-for-byte
+in a virtual-account context: a false decline that looks byte-for-byte
 identical to a correct one, no error signal anywhere.
 
 Fix: removed the seven plain commercial banks from the gate's provider list,
 keeping only entities where "asking about their API" is the dominant
 reading of the question. Re-verified: the 8 questions that previously
-false-declined now pass through correctly (7 of 8 — the 8th, a Kuda-specific
+false-declined now pass through correctly (7 of 8; the 8th, a Kuda-specific
 USSD question, correctly stays gated since Kuda is a genuine fintech
 competitor, not a settlement bank), all 5 adversarial prompts still decline
 as documented above, and both registered test prompts (tp_001, tp_002)
@@ -396,7 +396,7 @@ English words. "How do I add a carbon copy recipient to my transactional
 emails?" declined and cited Carbon the lender, on a question naming no
 fintech brand at all. Same risk with "a racing stripe design" and "a
 magnetic stripe card" falsely citing Stripe. Unlike the bank-name fix,
-these two can't just be removed from the list — Carbon and Stripe are
+these two can't just be removed from the list: Carbon and Stripe are
 genuine competing providers, and a real question about either should
 still decline.
 
@@ -413,12 +413,12 @@ brands still gate). Heinrich's point stood: the gate that protects against
 fabrication had zero tests of its own. It has them now.
 
 **Third failure mode, addressed conservatively under deadline pressure:
-list drift.** Heinrich's original comment named a third risk — corpus.db
+list drift.** Heinrich's original comment named a third risk: corpus.db
 and `CORPUS_PROVIDER_ALIASES` are two hand-maintained sources of truth
 about what's in scope, and nothing checks they stay in sync. His suggested
 fix is architecturally complete: have the gate read scope from corpus.db
 directly at query time instead of a hardcoded dict. Deliberately did not
-do that with under 7 hours to the submission deadline — it would touch
+do that with under 7 hours to the submission deadline. It would touch
 the hot path of every single query for a divergence that isn't currently
 happening. Instead, added a test that fails the moment corpus.db's actual
 `source` values and the alias dict's canonical values stop matching
@@ -431,7 +431,7 @@ explicitly deferred, not solved.
 prompts above were self-authored. To check the fix generalizes, not just
 passes my own test, I ran one real, independently-sourced question:
 two unconnected developers (on X and Reddit) separately hit the same
-real pain point — making a Paystack webhook handler idempotent — neither
+real pain point (making a Paystack webhook handler idempotent), neither
 prompt written by me. Top-retrieved chunk was Monnify (sim 0.716, higher
 than any Paystack chunk), the same shape of mismatch that caused the
 original bug. The model correctly stayed on Paystack, gave the right
